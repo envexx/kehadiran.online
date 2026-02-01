@@ -97,7 +97,7 @@ export default [
             "react-hooks/exhaustive-deps": "off",
             "jsx-a11y/click-events-have-key-events": "warn",
             "jsx-a11y/interactive-supports-focus": "warn",
-            "prettier/prettier": "warn",
+            "prettier/prettier": "off",
             "no-unused-vars": "off",
             "unused-imports/no-unused-vars": "off",
             "unused-imports/no-unused-imports": "warn",
@@ -129,14 +129,9 @@ export default [
                 "newlines-between": "always",
             }],
 
-            "react/self-closing-comp": "warn",
+            "react/self-closing-comp": "off",
 
-            "react/jsx-sort-props": ["warn", {
-                callbacksLast: true,
-                shorthandFirst: true,
-                noSortAlphabetically: false,
-                reservedFirst: true,
-            }],
+            "react/jsx-sort-props": "off",
 
             "padding-line-between-statements": ["warn", {
                 blankLine: "always",
