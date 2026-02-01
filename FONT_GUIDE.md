@@ -102,3 +102,4 @@ Jika font tidak muncul:
 3. Restart development server: `npm run dev`
 4. Check browser console untuk error loading font
 
+

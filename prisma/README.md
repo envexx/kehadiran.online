@@ -157,3 +157,4 @@ await prisma.siswa.findMany();
 Semua foreign key dan kolom yang sering di-query sudah ter-index untuk performa optimal.
 
 
+
