@@ -1,0 +1,465 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql" // atau "mysql" sesuai kebutuhan
+}
+
+// ============================================
+// TENANT (Multi-tenant Support)
+// ============================================
+model Tenant {
+  id            String   @id @default(cuid())
+  nama_sekolah  String   @db.VarChar(100)
+  alamat        String?  @db.Text
+  nomor_telepon String?  @db.VarChar(20)
+  email         String?  @db.VarChar(100)
+  logo          String?  @db.VarChar(255)
+  is_active     Boolean  @default(true)
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  // Relations
+  users         User[]
+  kelas         Kelas[]
+  siswa         Siswa[]
+  jadwal        Jadwal[]
+  presensi      Presensi[]
+  notifikasi    Notifikasi[]
+  settings      Setting[]
+  gurus         Guru[]
+  subscription  Subscription?
+  invoices      Invoice[]
+  audit_logs    AuditLog[]
+  api_keys      ApiKey[]
+  feature_quota FeatureQuota?
+  invites       Invite[]
+
+  @@index([is_active])
+  @@map("tenants")
+}
+
+// ============================================
+// USER (Admin & Guru yang bisa login)
+// ============================================
+model User {
+  id            String    @id @default(cuid())
+  tenant_id     String? // Null untuk superadmin (bisa akses semua tenant)
+  username      String    @db.VarChar(50)
+  email         String    @db.VarChar(100)
+  password_hash String    @db.VarChar(255)
+  role          String    @default("admin") @db.VarChar(20) // 'superadmin', 'admin', atau 'guru'
+  nama_lengkap  String    @db.VarChar(100)
+  nomor_telepon String?   @db.VarChar(20)
+  foto          String?   @db.VarChar(255)
+  is_active     Boolean   @default(true)
+  last_login    DateTime?
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+
+  // Relations
+  tenant         Tenant?    @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  guru           Guru?
+  presensi_input Presensi[] @relation("PresensiInputBy")
+  audit_logs     AuditLog[]
+  invites_sent   Invite[]
+
+  @@unique([username]) // Unique global (superadmin tidak perlu tenant_id)
+  @@unique([email]) // Unique global
+  @@index([tenant_id])
+  @@index([username])
+  @@index([email])
+  @@index([role])
+  @@map("users")
+}
+
+// ============================================
+// GURU (Data Guru - Disederhanakan)
+// ============================================
+model Guru {
+  id            String   @id @default(cuid())
+  tenant_id     String
+  user_id       String?  @unique // Optional, jika guru punya akun login
+  nip           String?  @db.VarChar(20)
+  nama_guru     String   @db.VarChar(100)
+  nomor_telepon String?  @db.VarChar(20)
+  nomor_wa      String?  @db.VarChar(20)
+  email         String?  @db.VarChar(100)
+  foto          String?  @db.VarChar(255)
+  is_active     Boolean  @default(true)
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  // Relations
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  user   User?  @relation(fields: [user_id], references: [id], onDelete: SetNull)
+
+  @@unique([tenant_id, nip])
+  @@index([tenant_id])
+  @@index([nip])
+  @@map("guru")
+}
+
+// ============================================
+// KELAS
+// ============================================
+model Kelas {
+  id            String   @id @default(cuid())
+  tenant_id     String
+  nama_kelas    String   @db.VarChar(20) // Contoh: 'XII RPL 1', 'XI RPL 2'
+  tingkat       String   @db.VarChar(10) // 'X', 'XI', 'XII'
+  jurusan       String?  @db.VarChar(50) // 'RPL', 'TKJ', 'MM', dll
+  wali_kelas_id String? // ID dari Guru
+  tahun_ajaran  String   @db.VarChar(20) // '2024/2025'
+  semester      String   @db.VarChar(10) // 'ganjil' atau 'genap'
+  kapasitas     Int      @default(40)
+  jumlah_siswa  Int      @default(0)
+  is_active     Boolean  @default(true)
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  // Relations
+  tenant Tenant  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  siswa  Siswa[]
+
+  @@unique([tenant_id, nama_kelas, tahun_ajaran, semester])
+  @@index([tenant_id])
+  @@index([nama_kelas])
+  @@index([tahun_ajaran])
+  @@map("kelas")
+}
+
+// ============================================
+// SISWA (Dengan Data Orang Tua Digabung)
+// ============================================
+model Siswa {
+  id             String    @id @default(cuid())
+  tenant_id      String
+  nisn           String    @db.VarChar(20)
+  nis            String?   @db.VarChar(20)
+  nama_lengkap   String    @db.VarChar(100)
+  nama_panggilan String?   @db.VarChar(50)
+  jenis_kelamin  String    @db.VarChar(1) // 'L' atau 'P'
+  tempat_lahir   String?   @db.VarChar(50)
+  tanggal_lahir  DateTime?
+  alamat         String?   @db.Text
+  email          String?   @db.VarChar(100)
+  nomor_telepon  String?   @db.VarChar(20)
+  foto           String?   @db.VarChar(255)
+  kelas_id       String
+  tahun_masuk    Int
+  status         String    @default("aktif") @db.VarChar(20) // 'aktif', 'lulus', 'pindah', 'keluar'
+
+  // Data Orang Tua (Digabung)
+  nama_ayah             String? @db.VarChar(100)
+  nomor_wa_ayah         String? @db.VarChar(20) // Format: 6281234567890
+  nama_ibu              String? @db.VarChar(100)
+  nomor_wa_ibu          String? @db.VarChar(20) // Format: 6281234567890
+  preferensi_notifikasi String? @default("ayah") @db.VarChar(10) // 'ayah', 'ibu', 'keduanya'
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  // Relations
+  tenant     Tenant       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  kelas      Kelas        @relation(fields: [kelas_id], references: [id], onDelete: Restrict)
+  presensi   Presensi[]
+  notifikasi Notifikasi[]
+
+  @@unique([tenant_id, nisn])
+  @@unique([tenant_id, nis])
+  @@index([tenant_id])
+  @@index([nisn])
+  @@index([nis])
+  @@index([kelas_id])
+  @@index([status])
+  @@index([nomor_wa_ayah])
+  @@index([nomor_wa_ibu])
+  @@map("siswa")
+}
+
+// ============================================
+// JADWAL (Jam Masuk & Pulang per Hari)
+// ============================================
+model Jadwal {
+  id         String   @id @default(cuid())
+  tenant_id  String
+  hari       String   @db.VarChar(10) // 'senin', 'selasa', 'rabu', 'kamis', 'jumat', 'sabtu', 'minggu'
+  jam_masuk  String   @db.VarChar(5) // Format: '07:00'
+  jam_pulang String   @db.VarChar(5) // Format: '15:00'
+  is_active  Boolean  @default(true)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  // Relations
+  tenant   Tenant     @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  presensi Presensi[]
+
+  @@unique([tenant_id, hari])
+  @@index([tenant_id])
+  @@index([hari])
+  @@map("jadwal")
+}
+
+// ============================================
+// PRESENSI
+// ============================================
+model Presensi {
+  id            String    @id @default(cuid())
+  tenant_id     String
+  siswa_id      String
+  jadwal_id     String // ID dari Jadwal (untuk tahu hari dan jam)
+  tanggal       DateTime  @db.Date
+  waktu_masuk   DateTime? // Waktu siswa melakukan presensi masuk
+  waktu_pulang  DateTime? // Waktu siswa melakukan presensi pulang
+  status_masuk  String    @db.VarChar(20) // 'hadir', 'terlambat', 'alpha'
+  status_pulang String?   @db.VarChar(20) // 'pulang', 'tidak_pulang'
+  metode_input  String    @default("manual") @db.VarChar(20) // 'qr_code', 'fingerprint', 'manual'
+  keterangan    String?   @db.Text // Alasan izin/sakit jika ada
+  foto_bukti    String?   @db.VarChar(255)
+  input_by      String? // User ID yang input (jika manual)
+  latitude      Decimal?  @db.Decimal(10, 8)
+  longitude     Decimal?  @db.Decimal(11, 8)
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+
+  // Relations
+  tenant     Tenant       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  siswa      Siswa        @relation(fields: [siswa_id], references: [id], onDelete: Cascade)
+  jadwal     Jadwal       @relation(fields: [jadwal_id], references: [id], onDelete: Restrict)
+  input_user User?        @relation("PresensiInputBy", fields: [input_by], references: [id], onDelete: SetNull)
+  notifikasi Notifikasi[]
+
+  @@unique([tenant_id, siswa_id, tanggal])
+  @@index([tenant_id])
+  @@index([siswa_id])
+  @@index([jadwal_id])
+  @@index([tanggal])
+  @@index([status_masuk])
+  @@index([siswa_id, tanggal])
+  @@map("presensi")
+}
+
+// ============================================
+// NOTIFIKASI (Log WhatsApp)
+// ============================================
+model Notifikasi {
+  id               String    @id @default(cuid())
+  tenant_id        String
+  siswa_id         String
+  presensi_id      String?
+  nomor_tujuan     String    @db.VarChar(20) // Nomor WA yang dikirimi
+  jenis_notifikasi String    @db.VarChar(50) // 'presensi_hadir', 'presensi_alpha', 'presensi_terlambat', 'laporan_harian', 'laporan_mingguan'
+  pesan            String    @db.Text
+  status           String    @default("pending") @db.VarChar(20) // 'pending', 'sent', 'failed', 'delivered'
+  response_data    Json? // Response dari API WhatsApp
+  error_message    String?   @db.Text
+  sent_at          DateTime?
+  created_at       DateTime  @default(now())
+
+  // Relations
+  tenant   Tenant    @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  siswa    Siswa     @relation(fields: [siswa_id], references: [id], onDelete: Cascade)
+  presensi Presensi? @relation(fields: [presensi_id], references: [id], onDelete: SetNull)
+
+  @@index([tenant_id])
+  @@index([siswa_id])
+  @@index([status])
+  @@index([created_at])
+  @@map("notifikasi")
+}
+
+// ============================================
+// SETTINGS (Pengaturan Sistem per Tenant)
+// ============================================
+model Setting {
+  id          String   @id @default(cuid())
+  tenant_id   String
+  key         String   @db.VarChar(100)
+  value       String?  @db.Text
+  description String?  @db.Text
+  category    String?  @db.VarChar(50) // 'general', 'notifikasi', 'presensi', 'whatsapp'
+  updated_at  DateTime @updatedAt
+  updated_by  String? // User ID
+
+  // Relations
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, key])
+  @@index([tenant_id])
+  @@index([key])
+  @@index([category])
+  @@map("settings")
+}
+
+// ============================================
+// BILLING & SUBSCRIPTION
+// ============================================
+model Subscription {
+  id            String    @id @default(cuid())
+  tenant_id     String    @unique
+  plan          String    @db.VarChar(50) // 'free', 'starter', 'pro', 'enterprise'
+  status        String    @default("active") @db.VarChar(20) // 'active', 'canceled', 'past_due', 'expired'
+  billing_cycle String    @db.VarChar(20) // 'monthly', 'annual'
+  amount        Decimal   @db.Decimal(10, 2)
+  currency      String    @default("IDR") @db.VarChar(10)
+  started_at    DateTime
+  ended_at      DateTime?
+  canceled_at   DateTime?
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+
+  // Relations
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id])
+  @@index([status])
+  @@index([plan])
+  @@map("subscriptions")
+}
+
+model Invoice {
+  id             String    @id @default(cuid())
+  tenant_id      String
+  invoice_number String    @unique @db.VarChar(50)
+  amount         Decimal   @db.Decimal(10, 2)
+  status         String    @db.VarChar(20) // 'draft', 'sent', 'paid', 'failed', 'cancelled'
+  issued_at      DateTime
+  due_at         DateTime
+  paid_at        DateTime?
+  payment_method String?   @db.VarChar(50)
+  notes          String?   @db.Text
+  created_at     DateTime  @default(now())
+  updated_at     DateTime  @updatedAt
+
+  // Relations
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id])
+  @@index([status])
+  @@index([invoice_number])
+  @@index([issued_at])
+  @@map("invoices")
+}
+
+// ============================================
+// AUDIT & ACTIVITY LOG
+// ============================================
+model AuditLog {
+  id          String   @id @default(cuid())
+  tenant_id   String?
+  user_id     String?
+  action      String   @db.VarChar(50) // 'create', 'update', 'delete', 'login', 'logout'
+  entity_type String   @db.VarChar(50) // 'siswa', 'presensi', 'user', 'kelas', dll
+  entity_id   String?
+  changes     Json? // Perubahan data (before/after)
+  ip_address  String?  @db.VarChar(45) // IPv4 atau IPv6
+  user_agent  String?  @db.Text
+  created_at  DateTime @default(now())
+
+  // Relations
+  tenant Tenant? @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  user   User?   @relation(fields: [user_id], references: [id], onDelete: SetNull)
+
+  @@index([tenant_id])
+  @@index([user_id])
+  @@index([action])
+  @@index([entity_type])
+  @@index([created_at])
+  @@index([tenant_id, created_at])
+  @@map("audit_logs")
+}
+
+// ============================================
+// API KEYS & INTEGRATION
+// ============================================
+model ApiKey {
+  id           String    @id @default(cuid())
+  tenant_id    String
+  key          String    @unique @db.VarChar(255) // Hashed API key
+  name         String    @db.VarChar(100)
+  description  String?   @db.Text
+  permissions  Json? // Array of permissions
+  is_active    Boolean   @default(true)
+  expires_at   DateTime?
+  last_used    DateTime?
+  last_used_ip String?   @db.VarChar(45)
+  created_at   DateTime  @default(now())
+  updated_at   DateTime  @updatedAt
+
+  // Relations
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id])
+  @@index([key])
+  @@index([is_active])
+  @@map("api_keys")
+}
+
+// ============================================
+// FEATURE FLAGS & QUOTAS
+// ============================================
+model FeatureQuota {
+  id         String   @id @default(cuid())
+  tenant_id  String   @unique
+  max_siswa  Int      @default(100)
+  max_guru   Int      @default(20)
+  max_kelas  Int      @default(10)
+  sms_quota  Int      @default(1000) // Quota SMS/WhatsApp per bulan
+  api_calls  Int      @default(10000) // API calls per bulan
+  storage_gb Decimal  @default(1) @db.Decimal(10, 2) // Storage dalam GB
+  features   Json? // Feature flags (JSON object)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  // Relations
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id])
+  @@map("feature_quotas")
+}
+
+// ============================================
+// INVITE & ROLE PERMISSION
+// ============================================
+model Invite {
+  id          String    @id @default(cuid())
+  tenant_id   String
+  email       String    @db.VarChar(100)
+  role        String    @db.VarChar(20) // 'admin', 'guru'
+  token       String    @unique @db.VarChar(255)
+  expires_at  DateTime
+  accepted_at DateTime?
+  invited_by  String // User ID yang mengirim invite
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
+
+  // Relations
+  tenant  Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  inviter User   @relation(fields: [invited_by], references: [id], onDelete: Restrict)
+
+  @@unique([tenant_id, email])
+  @@index([tenant_id])
+  @@index([email])
+  @@index([token])
+  @@index([expires_at])
+  @@map("invites")
+}
+
+model Permission {
+  id          String   @id @default(cuid())
+  name        String   @unique @db.VarChar(100) // Contoh: 'siswa.create', 'presensi.read'
+  description String?  @db.Text
+  resource    String   @db.VarChar(50) // 'siswa', 'presensi', 'kelas', dll
+  action      String   @db.VarChar(50) // 'create', 'read', 'update', 'delete'
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  @@index([resource])
+  @@index([action])
+  @@map("permissions")
+}
