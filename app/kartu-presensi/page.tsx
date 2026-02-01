@@ -166,8 +166,16 @@ export default function KartuPresensiPage() {
                   {students.map((student) => (
                     <div
                       key={student.id}
+                      role="button"
+                      tabIndex={0}
                       className="flex items-center gap-3 p-2 hover:bg-default-100 rounded-lg cursor-pointer transition-colors"
                       onClick={() => setSelectedStudent(student)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          setSelectedStudent(student);
+                        }
+                      }}
                     >
                       <Avatar src={student.foto} size="sm" />
                       <div className="flex-1 min-w-0">
@@ -274,7 +282,7 @@ export default function KartuPresensiPage() {
                 </div>
 
                 <p className="mt-4 text-sm text-default-500 text-center">
-                  Klik tombol "Export PNG HD" untuk mengunduh kartu dengan kualitas tinggi
+                  Klik tombol &quot;Export PNG HD&quot; untuk mengunduh kartu dengan kualitas tinggi
                 </p>
               </div>
             ) : (

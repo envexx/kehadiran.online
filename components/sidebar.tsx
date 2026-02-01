@@ -79,8 +79,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onClose }) => {
       {/* Mobile Overlay */}
       {isOpen && (
         <div 
+          role="button"
+          tabIndex={0}
           className="fixed inset-0 bg-black/50 z-40 lg:hidden"
           onClick={onClose}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              onClose?.();
+            }
+          }}
         />
       )}
 
