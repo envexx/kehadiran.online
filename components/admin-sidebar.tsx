@@ -20,7 +20,9 @@ import {
   ListChecks,
   Bell,
   Sun,
-  Moon
+  Moon,
+  Tag,
+  WhatsappLogo
 } from "phosphor-react";
 
 interface AdminSidebarProps {
@@ -40,12 +42,14 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ isOpen = true, onClo
     { key: "users", label: "Semua Users", icon: Users, href: "/admin/users" },
     { key: "subscriptions", label: "Subscriptions", icon: CreditCard, href: "/admin/subscriptions" },
     { key: "invoices", label: "Invoices", icon: ListChecks, href: "/admin/invoices" },
+    { key: "pricing", label: "Daftar Harga", icon: Tag, href: "/admin/pricing" },
   ];
 
   const systemMenuItems = [
     { key: "smtp", label: "SMTP & Email", icon: Envelope, href: "/admin/smtp" },
     { key: "email-logs", label: "Email Logs", icon: Bell, href: "/admin/email-logs" },
     { key: "audit", label: "Audit Log", icon: ChartLine, href: "/admin/audit" },
+    { key: "whatsapp", label: "WhatsApp", icon: WhatsappLogo, href: "/admin/whatsapp" },
     { key: "security", label: "Keamanan", icon: Shield, href: "/admin/security" },
   ];
 

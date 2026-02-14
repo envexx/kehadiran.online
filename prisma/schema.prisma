@@ -447,6 +447,21 @@ model Permission {
 }
 
 // ============================================
+// GLOBAL SETTINGS (Super Admin managed)
+// ============================================
+model GlobalSetting {
+  id          String   @id @default(cuid())
+  key         String   @unique @db.VarChar(100)
+  value       String?  @db.Text
+  category    String?  @db.VarChar(50) // 'whatsapp', 'general', 'system'
+  updated_at  DateTime @updatedAt
+  updated_by  String?
+
+  @@index([category])
+  @@map("global_settings")
+}
+
+// ============================================
 // PRICING PLANS (Global - Super Admin managed)
 // ============================================
 model PricingPlan {
