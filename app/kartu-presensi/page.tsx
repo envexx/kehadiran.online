@@ -5,13 +5,16 @@ import { Button } from "@heroui/button";
 import { Input } from "@heroui/input";
 import { Avatar } from "@heroui/avatar";
 import { Skeleton } from "@heroui/skeleton";
+import { Select, SelectItem } from "@heroui/select";
 import { TopBar } from "@/components/top-bar";
 import { 
   Download,
   MagnifyingGlass,
   QrCode,
   Printer,
-  Fingerprint
+  Fingerprint,
+  FolderOpen,
+  Export
 } from "phosphor-react";
 import { QRCodeSVG } from "qrcode.react";
 import { toPng } from "html-to-image";
@@ -21,26 +24,44 @@ interface StudentItem {
   nisn: string;
   nama_lengkap: string;
   kelas: string;
+  kelas_id: string;
   foto: string | null;
+}
+
+interface KelasItem {
+  id: string;
+  nama_kelas: string;
 }
 
 export default function KartuPresensiPage() {
   const cardRef = useRef<HTMLDivElement>(null);
+  const batchCardRef = useRef<HTMLDivElement>(null);
   const [searchNIS, setSearchNIS] = useState("");
   const [selectedStudent, setSelectedStudent] = useState<StudentItem | null>(null);
   const [students, setStudents] = useState<StudentItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [kelasList, setKelasList] = useState<KelasItem[]>([]);
+  const [filterKelas, setFilterKelas] = useState("");
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
-    fetch("/api/siswa?limit=100")
+    fetch("/api/siswa?limit=500")
       .then(r => r.json())
       .then(d => { if (d.data) setStudents(d.data); })
       .catch(() => {})
       .finally(() => setLoading(false));
+    fetch("/api/kelas")
+      .then(r => r.json())
+      .then(d => { if (d.data) setKelasList(d.data); })
+      .catch(() => {});
   }, []);
 
+  const filteredStudents = filterKelas
+    ? students.filter(s => s.kelas_id === filterKelas)
+    : students;
+
   const handleSearch = () => {
-    const student = students.find(s => s.nisn === searchNIS || s.nama_lengkap.toLowerCase().includes(searchNIS.toLowerCase()));
+    const student = filteredStudents.find(s => s.nisn === searchNIS || s.nama_lengkap.toLowerCase().includes(searchNIS.toLowerCase()));
     if (student) setSelectedStudent(student);
   };
 
@@ -62,6 +83,71 @@ export default function KartuPresensiPage() {
     } catch (error) {
       console.error("Error exporting PNG:", error);
     }
+  };
+
+  const handleExportAll = async () => {
+    const target = filterKelas ? filteredStudents : students;
+    if (target.length === 0) return;
+    setExporting(true);
+    try {
+      for (const student of target) {
+        // Create a temporary card element for each student
+        const container = document.createElement("div");
+        container.style.position = "absolute";
+        container.style.left = "-9999px";
+        container.style.width = "800px";
+        container.innerHTML = `
+          <div style="background: linear-gradient(135deg, #1e40af, #1d4ed8, #2563eb); padding: 48px; border-radius: 24px; width: 800px; height: 340px; display: flex; flex-direction: column; justify-content: space-between; font-family: system-ui, sans-serif; color: white; position: relative;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+              <div>
+                <div style="font-size: 22px; font-weight: 800; letter-spacing: 1px;">KARTU PRESENSI DIGITAL</div>
+                <div style="font-size: 12px; opacity: 0.7; margin-top: 4px;">Kehadiran — Sistem Presensi QR Code</div>
+              </div>
+            </div>
+            <div style="display: flex; gap: 40px; align-items: center; flex: 1; margin-top: 20px;">
+              <div style="flex: 1;">
+                <div style="font-size: 11px; opacity: 0.6; text-transform: uppercase; letter-spacing: 2px;">NISN</div>
+                <div style="font-size: 28px; font-weight: 700;">${student.nisn}</div>
+                <div style="font-size: 11px; opacity: 0.6; text-transform: uppercase; letter-spacing: 2px; margin-top: 12px;">Nama Lengkap</div>
+                <div style="font-size: 22px; font-weight: 700;">${student.nama_lengkap}</div>
+                <div style="display: flex; gap: 40px; margin-top: 12px;">
+                  <div>
+                    <div style="font-size: 11px; opacity: 0.6; text-transform: uppercase; letter-spacing: 2px;">Kelas</div>
+                    <div style="font-size: 18px; font-weight: 700;">${student.kelas || ""}</div>
+                  </div>
+                  <div>
+                    <div style="font-size: 11px; opacity: 0.6; text-transform: uppercase; letter-spacing: 2px;">Berlaku s/d</div>
+                    <div style="font-size: 18px; font-weight: 700;">30/6/${new Date().getFullYear() + 1}</div>
+                  </div>
+                </div>
+              </div>
+              <div style="background: white; padding: 16px; border-radius: 16px;">
+                <img src="https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=PRESENSI:${student.nisn}:${encodeURIComponent(student.nama_lengkap)}" width="160" height="160" />
+              </div>
+            </div>
+          </div>
+        `;
+        document.body.appendChild(container);
+        try {
+          const dataUrl = await toPng(container.firstElementChild as HTMLElement, {
+            quality: 1.0,
+            pixelRatio: 3,
+            cacheBust: true,
+          });
+          const link = document.createElement("a");
+          link.href = dataUrl;
+          link.download = `Kartu_${student.nisn}_${student.nama_lengkap.replace(/\s+/g, '_')}.png`;
+          link.click();
+          // Small delay between downloads
+          await new Promise(r => setTimeout(r, 300));
+        } finally {
+          document.body.removeChild(container);
+        }
+      }
+    } catch (error) {
+      console.error("Error batch exporting:", error);
+    }
+    setExporting(false);
   };
 
   return (
@@ -88,6 +174,16 @@ export default function KartuPresensiPage() {
                   Cari
                 </Button>
               </div>
+              <Select
+                label="Filter Kelas"
+                placeholder="Semua Kelas"
+                size="sm"
+                selectedKeys={filterKelas ? [filterKelas] : []}
+                onChange={(e) => setFilterKelas(e.target.value)}
+                classNames={{ trigger: "bg-gray-50 border-0 shadow-none" }}
+              >
+                {kelasList.map((k) => <SelectItem key={k.id}>{k.nama_kelas}</SelectItem>)}
+              </Select>
 
               {selectedStudent && (
                 <>
@@ -118,11 +214,45 @@ export default function KartuPresensiPage() {
               )}
             </div>
 
+            {/* Export Batch */}
+            <div className="bg-white rounded-2xl border border-gray-100 p-5 space-y-3">
+              <h3 className="font-semibold text-gray-900 text-sm">Export Kartu</h3>
+              <p className="text-xs text-gray-400">
+                {filterKelas
+                  ? `Export ${filteredStudents.length} kartu untuk kelas yang dipilih`
+                  : `Export semua ${students.length} kartu siswa`}
+              </p>
+              <Button
+                size="sm"
+                color="primary"
+                className="w-full bg-blue-600 font-medium"
+                startContent={!exporting && <Export size={14} />}
+                isLoading={exporting}
+                isDisabled={filteredStudents.length === 0}
+                onPress={handleExportAll}
+              >
+                {exporting ? "Mengexport..." : filterKelas ? "Export Kelas Ini" : "Export Semua Kartu"}
+              </Button>
+              {filterKelas && (
+                <Button
+                  size="sm"
+                  variant="bordered"
+                  className="w-full border-gray-200 text-gray-600"
+                  onPress={() => setFilterKelas("")}
+                >
+                  Reset Filter
+                </Button>
+              )}
+            </div>
+
             {/* Student List */}
             <div className="bg-white rounded-2xl border border-gray-100 p-5">
-              <h3 className="font-semibold text-gray-900 text-sm mb-3">Daftar Siswa</h3>
-              <div className="space-y-1">
-                {students.map((student) => (
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-semibold text-gray-900 text-sm">Daftar Siswa</h3>
+                <span className="text-xs text-gray-400">{filteredStudents.length} siswa</span>
+              </div>
+              <div className="space-y-1 max-h-[400px] overflow-y-auto">
+                {filteredStudents.map((student) => (
                   <button
                     key={student.id}
                     className={`w-full flex items-center gap-3 p-2.5 rounded-xl text-left transition-all ${

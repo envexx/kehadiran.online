@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@heroui/button";
 import { Input } from "@heroui/input";
 import { Avatar } from "@heroui/avatar";
@@ -23,15 +23,23 @@ import {
   Student,
   CheckCircle,
   XCircle,
-  Clock
+  Clock,
+  FileXls,
+  FileCsv,
+  WarningCircle,
+  Info
 } from "phosphor-react";
 
 export default function SiswaPage() {
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
+  const { isOpen: isImportOpen, onOpen: onImportOpen, onOpenChange: onImportOpenChange } = useDisclosure();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<{ created: number; skipped: number; errors: string[] } | null>(null);
 
   // Form state
   const [fNama, setFNama] = useState("");
@@ -76,6 +84,55 @@ export default function SiswaPage() {
       mutate(); mutateStats(); resetForm(); onClose();
     } catch { setFormError("Terjadi kesalahan"); }
     setSaving(false);
+  };
+
+  const handleDownloadTemplate = () => {
+    const header = "nisn,nis,nama_lengkap,jenis_kelamin,kelas_id,tempat_lahir,tanggal_lahir,nama_ayah,nomor_wa_ayah,nama_ibu,nomor_wa_ibu";
+    const example = "0012345678,,Ahmad Rizki,L,<kelas_id>,Jakarta,2008-05-15,Budi Santoso,6281234567890,Siti Aminah,6281234567891";
+    const notes = "# Petunjuk Pengisian:\n# nisn (wajib), nama_lengkap (wajib), jenis_kelamin: L/P (wajib), kelas_id (wajib - ambil dari halaman Kelas)\n# tanggal_lahir format: YYYY-MM-DD\n# nomor WA format: 628xxxxxxxxxx";
+    const csv = notes + "\n" + header + "\n" + example;
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "template-import-siswa.csv";
+    link.click();
+  };
+
+  const handleImportCSV = async (file: File) => {
+    setImporting(true);
+    setImportResult(null);
+    try {
+      const text = await file.text();
+      const lines = text.split("\n").filter(l => l.trim() && !l.startsWith("#"));
+      if (lines.length < 2) { setImportResult({ created: 0, skipped: 0, errors: ["File kosong atau tidak valid"] }); setImporting(false); return; }
+      const headers = lines[0].split(",").map(h => h.trim());
+      const rows = lines.slice(1).map(line => {
+        const vals = line.split(",").map(v => v.trim().replace(/^"|"$/g, ""));
+        const obj: Record<string, string> = {};
+        headers.forEach((h, i) => { obj[h] = vals[i] || ""; });
+        return obj;
+      }).filter(r => r.nisn && r.nama_lengkap);
+
+      const res = await fetch("/api/siswa/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ data: rows }),
+      });
+      const json = await res.json();
+      if (res.ok) {
+        setImportResult({ created: json.created, skipped: json.skipped, errors: json.errors || [] });
+        mutate(); mutateStats();
+      } else {
+        setImportResult({ created: 0, skipped: 0, errors: [json.error || "Gagal import"] });
+      }
+    } catch {
+      setImportResult({ created: 0, skipped: 0, errors: ["Terjadi kesalahan membaca file"] });
+    }
+    setImporting(false);
+  };
+
+  const handleExport = () => {
+    window.open("/api/siswa/export", "_blank");
   };
 
   const students = siswaData?.data || [];
@@ -143,10 +200,10 @@ export default function SiswaPage() {
               </Select>
             </div>
             <div className="flex gap-2">
-              <Button size="sm" variant="bordered" className="border-gray-200 text-gray-600" startContent={<UploadSimple size={14} />}>
+              <Button size="sm" variant="bordered" className="border-gray-200 text-gray-600" startContent={<UploadSimple size={14} />} onPress={onImportOpen}>
                 Import CSV
               </Button>
-              <Button size="sm" variant="bordered" className="border-gray-200 text-gray-600" startContent={<Download size={14} />}>
+              <Button size="sm" variant="bordered" className="border-gray-200 text-gray-600" startContent={<Download size={14} />} onPress={handleExport}>
                 Export
               </Button>
               <Button size="sm" color="primary" className="bg-blue-600 font-medium" startContent={<Plus size={14} weight="bold" />} onPress={onOpen}>
@@ -312,6 +369,102 @@ export default function SiswaPage() {
               <ModalFooter className="border-t border-gray-100">
                 <Button variant="bordered" className="border-gray-200" onPress={() => { resetForm(); onClose(); }}>Batal</Button>
                 <Button color="primary" className="bg-blue-600 font-medium" isLoading={saving} onPress={() => handleSave(onClose)}>Simpan Siswa</Button>
+              </ModalFooter>
+            </>
+          )}
+        </ModalContent>
+      </Modal>
+
+      {/* Import CSV Modal */}
+      <Modal isOpen={isImportOpen} onOpenChange={onImportOpenChange} size="lg">
+        <ModalContent>
+          {(onClose) => (
+            <>
+              <ModalHeader className="border-b border-gray-100">
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">Import Data Siswa</h3>
+                  <p className="text-sm text-gray-500 font-normal">Upload file CSV untuk menambahkan siswa secara massal</p>
+                </div>
+              </ModalHeader>
+              <ModalBody className="py-6 space-y-5">
+                {/* Step 1: Download Template */}
+                <div className="bg-blue-50 rounded-xl p-4 space-y-3">
+                  <div className="flex items-start gap-3">
+                    <Info size={20} className="text-blue-600 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-sm font-semibold text-blue-900">Langkah 1: Download Template</p>
+                      <p className="text-xs text-blue-700 mt-1">
+                        Download template CSV terlebih dahulu, isi data siswa sesuai format, lalu upload kembali.
+                        Kolom wajib: <strong>nisn, nama_lengkap, jenis_kelamin (L/P), kelas_id</strong>
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="bordered"
+                    className="border-blue-300 text-blue-700 bg-white"
+                    startContent={<FileCsv size={16} />}
+                    onPress={handleDownloadTemplate}
+                  >
+                    Download Template CSV
+                  </Button>
+                </div>
+
+                {/* Step 2: Upload */}
+                <div className="space-y-3">
+                  <p className="text-sm font-semibold text-gray-700">Langkah 2: Upload File CSV</p>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".csv"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleImportCSV(file);
+                      e.target.value = "";
+                    }}
+                  />
+                  <div
+                    className="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50/30 transition-colors"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <UploadSimple size={32} className="text-gray-300 mx-auto mb-2" />
+                    <p className="text-sm text-gray-500">Klik untuk pilih file CSV</p>
+                    <p className="text-xs text-gray-400 mt-1">Maksimal 1000 baris per upload</p>
+                  </div>
+                </div>
+
+                {/* Import Result */}
+                {importing && (
+                  <div className="bg-gray-50 rounded-xl p-4 text-center">
+                    <p className="text-sm text-gray-600">Mengimport data siswa...</p>
+                  </div>
+                )}
+                {importResult && (
+                  <div className={`rounded-xl p-4 space-y-2 ${importResult.created > 0 ? 'bg-emerald-50' : 'bg-red-50'}`}>
+                    <div className="flex items-center gap-2">
+                      {importResult.created > 0 ? (
+                        <CheckCircle size={18} className="text-emerald-600" weight="fill" />
+                      ) : (
+                        <WarningCircle size={18} className="text-red-500" weight="fill" />
+                      )}
+                      <p className="text-sm font-semibold text-gray-900">
+                        {importResult.created} siswa berhasil ditambahkan
+                        {importResult.skipped > 0 && `, ${importResult.skipped} dilewati`}
+                      </p>
+                    </div>
+                    {importResult.errors.length > 0 && (
+                      <div className="space-y-1">
+                        {importResult.errors.map((err, i) => (
+                          <p key={i} className="text-xs text-red-600">• {err}</p>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </ModalBody>
+              <ModalFooter className="border-t border-gray-100">
+                <Button variant="bordered" className="border-gray-200" onPress={() => { setImportResult(null); onClose(); }}>Tutup</Button>
               </ModalFooter>
             </>
           )}

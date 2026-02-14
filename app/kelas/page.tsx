@@ -262,8 +262,13 @@ export default function KelasPage() {
                   <Input label="Jurusan" placeholder="Contoh: RPL, TKJ" size="sm" value={fJurusan} onValueChange={setFJurusan} />
                   <Input label="Kapasitas" placeholder="40" type="number" size="sm" value={fKapasitas} onValueChange={setFKapasitas} />
                   <Select label="Tahun Ajaran" placeholder="Pilih" size="sm" isRequired selectedKeys={fTahunAjaran ? [fTahunAjaran] : []} onChange={(e) => setFTahunAjaran(e.target.value)}>
-                    <SelectItem key="2025/2026">2025/2026</SelectItem>
-                    <SelectItem key="2024/2025">2024/2025</SelectItem>
+                    {(() => {
+                      const y = new Date().getFullYear();
+                      return [0, -1, -2, -3].map(offset => {
+                        const val = `${y + offset}/${y + offset + 1}`;
+                        return <SelectItem key={val}>{val}</SelectItem>;
+                      });
+                    })()}
                   </Select>
                   <Select label="Semester" placeholder="Pilih" size="sm" isRequired selectedKeys={fSemester ? [fSemester] : []} onChange={(e) => setFSemester(e.target.value)}>
                     <SelectItem key="ganjil">Ganjil</SelectItem>

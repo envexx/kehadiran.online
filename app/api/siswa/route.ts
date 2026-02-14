@@ -46,9 +46,12 @@ export async function GET(request: NextRequest) {
       kelas: s.kelas.nama_kelas,
       kelas_id: s.kelas_id,
       status: s.status,
+      nama_ayah: s.nama_ayah,
+      nama_ibu: s.nama_ibu,
       nomor_wa_ayah: s.nomor_wa_ayah,
       nomor_wa_ibu: s.nomor_wa_ibu,
       foto: s.foto,
+      persentase_kehadiran: 0,
     }));
 
     return NextResponse.json({ data: mapped, total, page, limit });
