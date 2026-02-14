@@ -1,11 +1,32 @@
 import { NextResponse } from "next/server";
+import prisma from "@/lib/prisma";
+import { requireTenantAuth } from "@/lib/auth";
 
 export async function GET() {
-  return NextResponse.json({
-    data: [
-      { id: "inv1", invoice_number: "INV-2025-001", amount: 599000, status: "paid", issued_at: "2025-01-01", paid_at: "2025-01-02", payment_method: "bank_transfer" },
-      { id: "inv2", invoice_number: "INV-2025-002", amount: 599000, status: "paid", issued_at: "2025-02-01", paid_at: "2025-02-02", payment_method: "bank_transfer" },
-      { id: "inv3", invoice_number: "INV-2025-003", amount: 599000, status: "pending", issued_at: "2025-03-01", paid_at: null, payment_method: null },
-    ],
-  });
+  try {
+    const { tenantId } = await requireTenantAuth();
+
+    const data = await prisma.invoice.findMany({
+      where: { tenant_id: tenantId },
+      orderBy: { issued_at: "desc" },
+    });
+
+    return NextResponse.json({
+      data: data.map((inv) => ({
+        id: inv.id,
+        invoice_number: inv.invoice_number,
+        amount: Number(inv.amount),
+        status: inv.status,
+        issued_at: inv.issued_at,
+        paid_at: inv.paid_at,
+        payment_method: inv.payment_method,
+      })),
+    });
+  } catch (e: unknown) {
+    if (e instanceof Error && e.message === "UNAUTHORIZED") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 }

@@ -1,31 +1,89 @@
 import { NextRequest, NextResponse } from "next/server";
+import prisma from "@/lib/prisma";
+import { requireTenantAuth } from "@/lib/auth";
 
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const tanggal = searchParams.get("tanggal") || new Date().toISOString().split("T")[0];
-  const page = parseInt(searchParams.get("page") || "1");
-  const limit = parseInt(searchParams.get("limit") || "20");
+  try {
+    const { tenantId } = await requireTenantAuth();
 
-  // TODO: Replace with real Prisma queries
-  // Uses index: [tenant_id, tanggal, status_masuk]
-  const data = [
-    { id: "p1", siswa_id: "1", nama: "Ahmad Rizki", kelas: "XII RPL 1", tanggal, waktu_masuk: "07:02", status_masuk: "hadir", metode_input: "qr_code" },
-    { id: "p2", siswa_id: "2", nama: "Siti Nurhaliza", kelas: "XII RPL 1", tanggal, waktu_masuk: "07:05", status_masuk: "hadir", metode_input: "qr_code" },
-    { id: "p3", siswa_id: "3", nama: "Budi Santoso", kelas: "XI TKJ 2", tanggal, waktu_masuk: "07:15", status_masuk: "terlambat", metode_input: "manual" },
-    { id: "p4", siswa_id: "4", nama: "Dewi Lestari", kelas: "XII MM 1", tanggal, waktu_masuk: "07:01", status_masuk: "hadir", metode_input: "qr_code" },
-    { id: "p5", siswa_id: "5", nama: "Eko Prasetyo", kelas: "X RPL 1", tanggal, waktu_masuk: "07:20", status_masuk: "terlambat", metode_input: "qr_code" },
-    { id: "p6", siswa_id: "6", nama: "Fitri Handayani", kelas: "XI RPL 2", tanggal, waktu_masuk: "07:03", status_masuk: "hadir", metode_input: "qr_code" },
-    { id: "p7", siswa_id: "7", nama: "Galih Pratama", kelas: "XII TKJ 1", tanggal, waktu_masuk: null, status_masuk: "alpha", metode_input: "manual" },
-    { id: "p8", siswa_id: "8", nama: "Hana Safira", kelas: "X MM 1", tanggal, waktu_masuk: "07:08", status_masuk: "hadir", metode_input: "manual" },
-  ];
+    const { searchParams } = new URL(request.url);
+    const tanggal = searchParams.get("tanggal") || new Date().toISOString().split("T")[0];
+    const page = parseInt(searchParams.get("page") || "1");
+    const limit = parseInt(searchParams.get("limit") || "20");
 
-  const total = data.length;
-  const paged = data.slice((page - 1) * limit, page * limit);
+    const dateStart = new Date(tanggal);
+    dateStart.setHours(0, 0, 0, 0);
+    const dateEnd = new Date(dateStart);
+    dateEnd.setDate(dateEnd.getDate() + 1);
 
-  return NextResponse.json({ data: paged, total, page, limit });
+    const where = {
+      tenant_id: tenantId,
+      tanggal: { gte: dateStart, lt: dateEnd },
+    };
+
+    const [data, total] = await Promise.all([
+      prisma.presensi.findMany({
+        where,
+        include: {
+          siswa: {
+            select: { nama_lengkap: true, kelas: { select: { nama_kelas: true } } },
+          },
+        },
+        orderBy: { created_at: "desc" },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.presensi.count({ where }),
+    ]);
+
+    const mapped = data.map((p) => ({
+      id: p.id,
+      siswa_id: p.siswa_id,
+      nama: p.siswa.nama_lengkap,
+      kelas: p.siswa.kelas.nama_kelas,
+      tanggal: p.tanggal.toISOString().split("T")[0],
+      waktu_masuk: p.waktu_masuk ? p.waktu_masuk.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) : null,
+      status_masuk: p.status_masuk,
+      metode_input: p.metode_input,
+    }));
+
+    return NextResponse.json({ data: mapped, total, page, limit });
+  } catch (e: unknown) {
+    if (e instanceof Error && e.message === "UNAUTHORIZED") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 }
 
 export async function POST(request: NextRequest) {
-  const body = await request.json();
-  return NextResponse.json({ success: true, data: { id: "new-presensi", ...body } }, { status: 201 });
+  try {
+    const { tenantId, userId } = await requireTenantAuth();
+    const body = await request.json();
+
+    const presensi = await prisma.presensi.create({
+      data: {
+        tenant_id: tenantId,
+        siswa_id: body.siswa_id,
+        jadwal_id: body.jadwal_id,
+        tanggal: new Date(body.tanggal || new Date().toISOString().split("T")[0]),
+        waktu_masuk: body.waktu_masuk ? new Date(body.waktu_masuk) : new Date(),
+        status_masuk: body.status_masuk || "hadir",
+        metode_input: body.metode_input || "manual",
+        keterangan: body.keterangan || null,
+        input_by: userId,
+      },
+    });
+
+    return NextResponse.json({ success: true, data: presensi }, { status: 201 });
+  } catch (e: unknown) {
+    if (e instanceof Error && e.message === "UNAUTHORIZED") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const message = e instanceof Error ? e.message : "Unknown error";
+
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }

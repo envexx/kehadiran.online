@@ -1,28 +1,82 @@
 import { NextRequest, NextResponse } from "next/server";
+import prisma from "@/lib/prisma";
+import { requireTenantAuth } from "@/lib/auth";
 
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const tahunAjaran = searchParams.get("tahunAjaran") || "";
-  const semester = searchParams.get("semester") || "";
+  try {
+    const { tenantId } = await requireTenantAuth();
 
-  // TODO: Replace with real Prisma queries
-  // Uses index: [tenant_id, tahun_ajaran, semester, is_active]
-  let data = [
-    { id: "k1", nama_kelas: "XII RPL 1", tingkat: "XII", jurusan: "RPL", wali_kelas: "Bambang Sutrisno", tahun_ajaran: "2024/2025", semester: "genap", kapasitas: 36, jumlah_siswa: 34, is_active: true },
-    { id: "k2", nama_kelas: "XI TKJ 2", tingkat: "XI", jurusan: "TKJ", wali_kelas: "Agus Setiawan", tahun_ajaran: "2024/2025", semester: "genap", kapasitas: 36, jumlah_siswa: 32, is_active: true },
-    { id: "k3", nama_kelas: "XII MM 1", tingkat: "XII", jurusan: "MM", wali_kelas: "Sari Indah", tahun_ajaran: "2024/2025", semester: "genap", kapasitas: 36, jumlah_siswa: 35, is_active: true },
-    { id: "k4", nama_kelas: "X RPL 1", tingkat: "X", jurusan: "RPL", wali_kelas: "Rina Wulandari", tahun_ajaran: "2024/2025", semester: "genap", kapasitas: 36, jumlah_siswa: 30, is_active: true },
-    { id: "k5", nama_kelas: "XI RPL 2", tingkat: "XI", jurusan: "RPL", wali_kelas: "Hendra Wijaya", tahun_ajaran: "2024/2025", semester: "genap", kapasitas: 36, jumlah_siswa: 33, is_active: true },
-    { id: "k6", nama_kelas: "XII TKJ 1", tingkat: "XII", jurusan: "TKJ", wali_kelas: "Bambang Sutrisno", tahun_ajaran: "2024/2025", semester: "genap", kapasitas: 36, jumlah_siswa: 36, is_active: true },
-  ];
+    const { searchParams } = new URL(request.url);
+    const tahunAjaran = searchParams.get("tahunAjaran") || "";
+    const semester = searchParams.get("semester") || "";
 
-  if (tahunAjaran) data = data.filter((k) => k.tahun_ajaran === tahunAjaran);
-  if (semester) data = data.filter((k) => k.semester === semester);
+    const where: Record<string, unknown> = { tenant_id: tenantId };
 
-  return NextResponse.json({ data, total: data.length });
+    if (tahunAjaran) where.tahun_ajaran = tahunAjaran;
+    if (semester) where.semester = semester;
+
+    const data = await prisma.kelas.findMany({
+      where,
+      orderBy: [{ tingkat: "asc" }, { nama_kelas: "asc" }],
+    });
+
+    // Get wali kelas names
+    const waliIds = data.map((k) => k.wali_kelas_id).filter(Boolean) as string[];
+    const waliGuru = waliIds.length > 0
+      ? await prisma.guru.findMany({ where: { id: { in: waliIds } }, select: { id: true, nama_guru: true } })
+      : [];
+    const waliMap = Object.fromEntries(waliGuru.map((g) => [g.id, g.nama_guru]));
+
+    const mapped = data.map((k) => ({
+      id: k.id,
+      nama_kelas: k.nama_kelas,
+      tingkat: k.tingkat,
+      jurusan: k.jurusan,
+      wali_kelas: k.wali_kelas_id ? waliMap[k.wali_kelas_id] || "—" : "—",
+      wali_kelas_id: k.wali_kelas_id,
+      tahun_ajaran: k.tahun_ajaran,
+      semester: k.semester,
+      kapasitas: k.kapasitas,
+      jumlah_siswa: k.jumlah_siswa,
+      is_active: k.is_active,
+    }));
+
+    return NextResponse.json({ data: mapped, total: mapped.length });
+  } catch (e: unknown) {
+    if (e instanceof Error && e.message === "UNAUTHORIZED") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 }
 
 export async function POST(request: NextRequest) {
-  const body = await request.json();
-  return NextResponse.json({ success: true, data: { id: "new-id", ...body } }, { status: 201 });
+  try {
+    const { tenantId } = await requireTenantAuth();
+    const body = await request.json();
+
+    const kelas = await prisma.kelas.create({
+      data: {
+        tenant_id: tenantId,
+        nama_kelas: body.nama_kelas,
+        tingkat: body.tingkat,
+        jurusan: body.jurusan || null,
+        wali_kelas_id: body.wali_kelas_id || null,
+        tahun_ajaran: body.tahun_ajaran,
+        semester: body.semester,
+        kapasitas: body.kapasitas || 40,
+      },
+    });
+
+    return NextResponse.json({ success: true, data: kelas }, { status: 201 });
+  } catch (e: unknown) {
+    if (e instanceof Error && e.message === "UNAUTHORIZED") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const message = e instanceof Error ? e.message : "Unknown error";
+
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }

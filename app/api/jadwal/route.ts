@@ -1,16 +1,49 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import prisma from "@/lib/prisma";
+import { requireTenantAuth } from "@/lib/auth";
 
 export async function GET() {
-  // TODO: Replace with real Prisma queries
-  // Uses index: [tenant_id, is_active]
-  const data = [
-    { id: "j1", hari: "senin", jam_masuk: "07:00", jam_pulang: "15:00", is_active: true },
-    { id: "j2", hari: "selasa", jam_masuk: "07:00", jam_pulang: "15:00", is_active: true },
-    { id: "j3", hari: "rabu", jam_masuk: "07:00", jam_pulang: "15:00", is_active: true },
-    { id: "j4", hari: "kamis", jam_masuk: "07:00", jam_pulang: "15:00", is_active: true },
-    { id: "j5", hari: "jumat", jam_masuk: "07:00", jam_pulang: "11:30", is_active: true },
-    { id: "j6", hari: "sabtu", jam_masuk: "07:00", jam_pulang: "12:00", is_active: false },
-  ];
+  try {
+    const { tenantId } = await requireTenantAuth();
 
-  return NextResponse.json({ data });
+    const data = await prisma.jadwal.findMany({
+      where: { tenant_id: tenantId },
+      orderBy: { hari: "asc" },
+    });
+
+    return NextResponse.json({ data });
+  } catch (e: unknown) {
+    if (e instanceof Error && e.message === "UNAUTHORIZED") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const { tenantId } = await requireTenantAuth();
+    const body = await request.json();
+
+    const jadwal = await prisma.jadwal.create({
+      data: {
+        tenant_id: tenantId,
+        hari: body.hari,
+        jam_masuk: body.jam_masuk,
+        jam_pulang: body.jam_pulang,
+        is_active: body.is_active ?? true,
+      },
+    });
+
+    return NextResponse.json({ success: true, data: jadwal }, { status: 201 });
+  } catch (e: unknown) {
+    if (e instanceof Error && e.message === "UNAUTHORIZED") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const message = e instanceof Error ? e.message : "Unknown error";
+
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }

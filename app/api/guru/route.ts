@@ -1,27 +1,63 @@
 import { NextRequest, NextResponse } from "next/server";
+import prisma from "@/lib/prisma";
+import { requireTenantAuth } from "@/lib/auth";
 
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const search = searchParams.get("search") || "";
+  try {
+    const { tenantId } = await requireTenantAuth();
 
-  // TODO: Replace with real Prisma queries
-  // Uses index: [tenant_id, is_active]
-  let data = [
-    { id: "1", nip: "198501012010011001", nama_guru: "Dr. Hendra Wijaya, M.Pd", nomor_telepon: "081234567890", nomor_wa: "6281234567890", email: "hendra@sekolah.sch.id", is_active: true, mata_pelajaran: "Matematika" },
-    { id: "2", nip: "198602022011012002", nama_guru: "Sari Indah, S.Pd", nomor_telepon: "081234567891", nomor_wa: "6281234567891", email: "sari@sekolah.sch.id", is_active: true, mata_pelajaran: "Bahasa Indonesia" },
-    { id: "3", nip: "198703032012013003", nama_guru: "Bambang Sutrisno, S.Kom", nomor_telepon: "081234567892", nomor_wa: "6281234567892", email: "bambang@sekolah.sch.id", is_active: true, mata_pelajaran: "Pemrograman" },
-    { id: "4", nip: "198804042013014004", nama_guru: "Rina Wulandari, S.Pd", nomor_telepon: "081234567893", nomor_wa: "6281234567893", email: "rina@sekolah.sch.id", is_active: true, mata_pelajaran: "Bahasa Inggris" },
-    { id: "5", nip: "198905052014015005", nama_guru: "Agus Setiawan, M.T", nomor_telepon: "081234567894", nomor_wa: "6281234567894", email: "agus@sekolah.sch.id", is_active: false, mata_pelajaran: "Jaringan Komputer" },
-  ];
+    const { searchParams } = new URL(request.url);
+    const search = searchParams.get("search") || "";
 
-  if (search) {
-    data = data.filter((g) => g.nama_guru.toLowerCase().includes(search.toLowerCase()) || (g.nip && g.nip.includes(search)));
+    const where: Record<string, unknown> = { tenant_id: tenantId };
+
+    if (search) {
+      where.OR = [
+        { nama_guru: { contains: search, mode: "insensitive" } },
+        { nip: { contains: search } },
+      ];
+    }
+
+    const data = await prisma.guru.findMany({
+      where,
+      orderBy: { nama_guru: "asc" },
+    });
+
+    return NextResponse.json({ data, total: data.length });
+  } catch (e: unknown) {
+    if (e instanceof Error && e.message === "UNAUTHORIZED") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
-
-  return NextResponse.json({ data, total: data.length });
 }
 
 export async function POST(request: NextRequest) {
-  const body = await request.json();
-  return NextResponse.json({ success: true, data: { id: "new-id", ...body } }, { status: 201 });
+  try {
+    const { tenantId } = await requireTenantAuth();
+    const body = await request.json();
+
+    const guru = await prisma.guru.create({
+      data: {
+        tenant_id: tenantId,
+        nama_guru: body.nama_guru,
+        nip: body.nip || null,
+        email: body.email || null,
+        nomor_telepon: body.nomor_telepon || null,
+        nomor_wa: body.nomor_wa || null,
+        is_active: true,
+      },
+    });
+
+    return NextResponse.json({ success: true, data: guru }, { status: 201 });
+  } catch (e: unknown) {
+    if (e instanceof Error && e.message === "UNAUTHORIZED") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const message = e instanceof Error ? e.message : "Unknown error";
+
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }

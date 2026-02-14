@@ -1,30 +1,56 @@
 import { NextRequest, NextResponse } from "next/server";
+import prisma from "@/lib/prisma";
+import { requireTenantAuth } from "@/lib/auth";
 
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const category = searchParams.get("category") || "";
+  try {
+    const { tenantId } = await requireTenantAuth();
 
-  // TODO: Replace with real Prisma queries
-  // Uses index: [tenant_id, category]
-  const allSettings = [
-    { key: "school_name", value: "SMK Negeri 1 Batam", category: "general" },
-    { key: "school_address", value: "Jl. Prof. Dr. Hamka No. 1, Batam", category: "general" },
-    { key: "school_phone", value: "0778-123456", category: "general" },
-    { key: "school_email", value: "info@smkn1batam.sch.id", category: "general" },
-    { key: "wa_api_url", value: "https://api.fonnte.com/send", category: "whatsapp" },
-    { key: "wa_api_token", value: "••••••••", category: "whatsapp" },
-    { key: "wa_template_hadir", value: "Yth. Bapak/Ibu, {nama_siswa} telah hadir di sekolah pada {waktu}.", category: "whatsapp" },
-    { key: "wa_template_alpha", value: "Yth. Bapak/Ibu, {nama_siswa} tidak hadir di sekolah hari ini.", category: "whatsapp" },
-    { key: "presensi_batas_terlambat", value: "15", category: "presensi" },
-    { key: "presensi_auto_alpha", value: "true", category: "presensi" },
-  ];
+    const { searchParams } = new URL(request.url);
+    const category = searchParams.get("category") || "";
 
-  const data = category ? allSettings.filter((s) => s.category === category) : allSettings;
+    const where: Record<string, unknown> = { tenant_id: tenantId };
 
-  return NextResponse.json({ data });
+    if (category) where.category = category;
+
+    const data = await prisma.setting.findMany({ where, orderBy: { key: "asc" } });
+
+    return NextResponse.json({ data });
+  } catch (e: unknown) {
+    if (e instanceof Error && e.message === "UNAUTHORIZED") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 }
 
 export async function PUT(request: NextRequest) {
-  const body = await request.json();
-  return NextResponse.json({ success: true, data: body });
+  try {
+    const { tenantId, userId } = await requireTenantAuth();
+    const body = await request.json();
+
+    // body should be { key, value, category? }
+    const setting = await prisma.setting.upsert({
+      where: { tenant_id_key: { tenant_id: tenantId, key: body.key } },
+      update: { value: body.value, updated_by: userId },
+      create: {
+        tenant_id: tenantId,
+        key: body.key,
+        value: body.value,
+        category: body.category || "general",
+        updated_by: userId,
+      },
+    });
+
+    return NextResponse.json({ success: true, data: setting });
+  } catch (e: unknown) {
+    if (e instanceof Error && e.message === "UNAUTHORIZED") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const message = e instanceof Error ? e.message : "Unknown error";
+
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }

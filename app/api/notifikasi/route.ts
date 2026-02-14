@@ -1,27 +1,47 @@
 import { NextRequest, NextResponse } from "next/server";
+import prisma from "@/lib/prisma";
+import { requireTenantAuth } from "@/lib/auth";
 
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const status = searchParams.get("status") || "";
-  const page = parseInt(searchParams.get("page") || "1");
-  const limit = parseInt(searchParams.get("limit") || "20");
+  try {
+    const { tenantId } = await requireTenantAuth();
 
-  // TODO: Replace with real Prisma queries
-  // Uses index: [tenant_id, created_at] and [status, created_at]
-  let data = [
-    { id: "n1", siswa: "Ahmad Rizki", nomor_tujuan: "6281234567890", jenis: "presensi_hadir", status: "sent", pesan: "Ahmad Rizki telah hadir di sekolah pada 07:02", sent_at: "2025-02-14T07:05:00Z" },
-    { id: "n2", siswa: "Budi Santoso", nomor_tujuan: "6281234567894", jenis: "presensi_terlambat", status: "sent", pesan: "Budi Santoso terlambat masuk sekolah pada 07:15", sent_at: "2025-02-14T07:18:00Z" },
-    { id: "n3", siswa: "Galih Pratama", nomor_tujuan: "6281234567802", jenis: "presensi_alpha", status: "pending", pesan: "Galih Pratama tidak hadir di sekolah hari ini", sent_at: null },
-    { id: "n4", siswa: "Siti Nurhaliza", nomor_tujuan: "6281234567892", jenis: "presensi_hadir", status: "sent", pesan: "Siti Nurhaliza telah hadir di sekolah pada 07:05", sent_at: "2025-02-14T07:08:00Z" },
-    { id: "n5", siswa: "Eko Prasetyo", nomor_tujuan: "6281234567898", jenis: "presensi_terlambat", status: "failed", pesan: "Eko Prasetyo terlambat masuk sekolah pada 07:20", sent_at: null },
-  ];
+    const { searchParams } = new URL(request.url);
+    const status = searchParams.get("status") || "";
+    const page = parseInt(searchParams.get("page") || "1");
+    const limit = parseInt(searchParams.get("limit") || "20");
 
-  if (status) {
-    data = data.filter((n) => n.status === status);
+    const where: Record<string, unknown> = { tenant_id: tenantId };
+
+    if (status) where.status = status;
+
+    const [data, total] = await Promise.all([
+      prisma.notifikasi.findMany({
+        where,
+        include: { siswa: { select: { nama_lengkap: true } } },
+        orderBy: { created_at: "desc" },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.notifikasi.count({ where }),
+    ]);
+
+    const mapped = data.map((n) => ({
+      id: n.id,
+      siswa: n.siswa.nama_lengkap,
+      nomor_tujuan: n.nomor_tujuan,
+      jenis: n.jenis_notifikasi,
+      status: n.status,
+      pesan: n.pesan,
+      sent_at: n.sent_at,
+    }));
+
+    return NextResponse.json({ data: mapped, total, page, limit });
+  } catch (e: unknown) {
+    if (e instanceof Error && e.message === "UNAUTHORIZED") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
-
-  const total = data.length;
-  const paged = data.slice((page - 1) * limit, page * limit);
-
-  return NextResponse.json({ data: paged, total, page, limit });
 }
