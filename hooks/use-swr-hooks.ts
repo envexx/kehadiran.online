@@ -195,17 +195,15 @@ export function useJadwal(tenantId?: string) {
 // ============================================
 export function useLaporan(params?: {
   tenantId?: string;
-  tahunAjaran?: string;
-  semester?: string;
   kelasId?: string;
-  bulan?: string;
+  startDate?: string;
+  endDate?: string;
 }) {
   const searchParams = new URLSearchParams();
   if (params?.tenantId) searchParams.set("tenantId", params.tenantId);
-  if (params?.tahunAjaran) searchParams.set("tahunAjaran", params.tahunAjaran);
-  if (params?.semester) searchParams.set("semester", params.semester);
   if (params?.kelasId) searchParams.set("kelasId", params.kelasId);
-  if (params?.bulan) searchParams.set("bulan", params.bulan);
+  if (params?.startDate) searchParams.set("startDate", params.startDate);
+  if (params?.endDate) searchParams.set("endDate", params.endDate);
 
   const query = searchParams.toString();
   return useSWR(`/api/laporan${query ? `?${query}` : ""}`, fetcher, defaultConfig);
