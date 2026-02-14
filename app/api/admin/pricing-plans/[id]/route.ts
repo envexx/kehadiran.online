@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { requireTenantAuth } from "@/lib/auth";
+import { requireSuperAdminAuth } from "@/lib/auth";
 
 async function requireSuperAdmin() {
-  const { userId } = await requireTenantAuth();
+  const { userId } = await requireSuperAdminAuth();
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
   if (!user || user.role !== "superadmin") throw new Error("FORBIDDEN");
   return { userId };

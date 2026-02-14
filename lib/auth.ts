@@ -40,3 +40,13 @@ export async function requireTenantAuth(): Promise<{ userId: string; tenantId: s
 
   return { userId: auth.sub, tenantId: auth.tenantId };
 }
+
+export async function requireSuperAdminAuth(): Promise<{ userId: string }> {
+  const auth = await getAuthPayload();
+
+  if (!auth || !auth.sub) {
+    throw new Error("UNAUTHORIZED");
+  }
+
+  return { userId: auth.sub };
+}
