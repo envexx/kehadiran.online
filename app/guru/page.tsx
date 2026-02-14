@@ -11,6 +11,7 @@ import { Pagination } from "@heroui/pagination";
 import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, useDisclosure } from "@heroui/modal";
 import { Select, SelectItem } from "@heroui/select";
 import { TopBar } from "@/components/top-bar";
+import { DeleteModal } from "@/components/delete-modal";
 import { useGuru, useGuruStats } from "@/hooks/use-swr-hooks";
 import { 
   MagnifyingGlass, 
@@ -33,6 +34,8 @@ export default function GuruPage() {
   const [formError, setFormError] = useState("");
   const [editId, setEditId] = useState("");
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; nama_guru: string } | null>(null);
+  const [deleteError, setDeleteError] = useState("");
 
   // Form state
   const [fNama, setFNama] = useState("");
@@ -73,15 +76,15 @@ export default function GuruPage() {
     setSaving(false);
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Yakin ingin menghapus guru ini?")) return;
-    setDeleting(id);
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(deleteTarget.id); setDeleteError("");
     try {
-      const res = await fetch(`/api/guru/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/guru/${deleteTarget.id}`, { method: "DELETE" });
       const json = await res.json();
-      if (!res.ok) { alert(json.error || "Gagal menghapus"); setDeleting(null); return; }
-      mutate(); mutateStats();
-    } catch { alert("Terjadi kesalahan"); }
+      if (!res.ok) { setDeleteError(json.error || "Gagal menghapus"); setDeleting(null); return; }
+      mutate(); mutateStats(); setDeleteTarget(null);
+    } catch { setDeleteError("Terjadi kesalahan"); }
     setDeleting(null);
   };
 
@@ -226,7 +229,7 @@ export default function GuruPage() {
                         <Button isIconOnly size="sm" variant="light" className="text-gray-400 hover:text-amber-600" onPress={() => openEdit(teacher)}>
                           <PencilSimple size={16} />
                         </Button>
-                        <Button isIconOnly size="sm" variant="light" className="text-gray-400 hover:text-red-500" isLoading={deleting === teacher.id} onPress={() => handleDelete(teacher.id)}>
+                        <Button isIconOnly size="sm" variant="light" className="text-gray-400 hover:text-red-500" isLoading={deleting === teacher.id} onPress={() => { setDeleteError(""); setDeleteTarget(teacher); }}>
                           <Trash size={16} />
                         </Button>
                       </div>
@@ -303,6 +306,18 @@ export default function GuruPage() {
           )}
         </ModalContent>
       </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <DeleteModal
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDelete}
+        title="Hapus Guru"
+        description="Apakah Anda yakin ingin menghapus guru ini? Tindakan ini tidak dapat dibatalkan."
+        itemName={deleteTarget?.nama_guru}
+        isLoading={!!deleting}
+        error={deleteError}
+      />
     </div>
   );
 }

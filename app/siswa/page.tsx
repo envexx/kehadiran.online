@@ -11,6 +11,7 @@ import { Pagination } from "@heroui/pagination";
 import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, useDisclosure } from "@heroui/modal";
 import { Select, SelectItem } from "@heroui/select";
 import { TopBar } from "@/components/top-bar";
+import { DeleteModal } from "@/components/delete-modal";
 import { useSiswa, useSiswaStats } from "@/hooks/use-swr-hooks";
 import { 
   MagnifyingGlass, 
@@ -44,6 +45,8 @@ export default function SiswaPage() {
   const [importResult, setImportResult] = useState<{ created: number; skipped: number; errors: string[] } | null>(null);
   const [editId, setEditId] = useState("");
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; nama_lengkap: string } | null>(null);
+  const [deleteError, setDeleteError] = useState("");
 
   // Form state
   const [fNama, setFNama] = useState("");
@@ -114,15 +117,15 @@ export default function SiswaPage() {
     setSaving(false);
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Yakin ingin menghapus siswa ini?")) return;
-    setDeleting(id);
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(deleteTarget.id); setDeleteError("");
     try {
-      const res = await fetch(`/api/siswa/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/siswa/${deleteTarget.id}`, { method: "DELETE" });
       const json = await res.json();
-      if (!res.ok) { alert(json.error || "Gagal menghapus"); setDeleting(null); return; }
-      mutate(); mutateStats();
-    } catch { alert("Terjadi kesalahan"); }
+      if (!res.ok) { setDeleteError(json.error || "Gagal menghapus"); setDeleting(null); return; }
+      mutate(); mutateStats(); setDeleteTarget(null);
+    } catch { setDeleteError("Terjadi kesalahan"); }
     setDeleting(null);
   };
 
@@ -360,7 +363,7 @@ export default function SiswaPage() {
                         <Button isIconOnly size="sm" variant="light" className="text-gray-400 hover:text-amber-600" onPress={() => openEdit(student)}>
                           <PencilSimple size={16} />
                         </Button>
-                        <Button isIconOnly size="sm" variant="light" className="text-gray-400 hover:text-red-500" isLoading={deleting === student.id} onPress={() => handleDelete(student.id)}>
+                        <Button isIconOnly size="sm" variant="light" className="text-gray-400 hover:text-red-500" isLoading={deleting === student.id} onPress={() => { setDeleteError(""); setDeleteTarget(student); }}>
                           <Trash size={16} />
                         </Button>
                       </div>
@@ -582,6 +585,18 @@ export default function SiswaPage() {
           )}
         </ModalContent>
       </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <DeleteModal
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDelete}
+        title="Hapus Siswa"
+        description="Apakah Anda yakin ingin menghapus siswa ini? Semua data presensi dan informasi terkait siswa ini akan hilang."
+        itemName={deleteTarget?.nama_lengkap}
+        isLoading={!!deleting}
+        error={deleteError}
+      />
     </div>
   );
 }

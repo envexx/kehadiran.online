@@ -8,6 +8,7 @@ import { Skeleton } from "@heroui/skeleton";
 import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, useDisclosure } from "@heroui/modal";
 import { Select, SelectItem } from "@heroui/select";
 import { TopBar } from "@/components/top-bar";
+import { DeleteModal } from "@/components/delete-modal";
 import { useKelas, useKelasStats, useSettings } from "@/hooks/use-swr-hooks";
 import Link from "next/link";
 import { 
@@ -41,6 +42,8 @@ export default function KelasPage() {
   const [filterTA, setFilterTA] = useState("");
   const [editId, setEditId] = useState("");
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<KelasItem | null>(null);
+  const [deleteError, setDeleteError] = useState("");
 
   // Form state
   const [fNama, setFNama] = useState("");
@@ -103,15 +106,15 @@ export default function KelasPage() {
     setSaving(false);
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Yakin ingin menghapus kelas ini?")) return;
-    setDeleting(id);
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(deleteTarget.id); setDeleteError("");
     try {
-      const res = await fetch(`/api/kelas/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/kelas/${deleteTarget.id}`, { method: "DELETE" });
       const json = await res.json();
-      if (!res.ok) { alert(json.error || "Gagal menghapus"); setDeleting(null); return; }
-      mutate(); mutateStats();
-    } catch { alert("Terjadi kesalahan"); }
+      if (!res.ok) { setDeleteError(json.error || "Gagal menghapus"); setDeleting(null); return; }
+      mutate(); mutateStats(); setDeleteTarget(null);
+    } catch { setDeleteError("Terjadi kesalahan"); }
     setDeleting(null);
   };
 
@@ -226,7 +229,7 @@ export default function KelasPage() {
                     <Button isIconOnly size="sm" variant="light" className="text-gray-400 hover:text-amber-600" onPress={() => openEdit(kelas)}>
                       <PencilSimple size={14} />
                     </Button>
-                    <Button isIconOnly size="sm" variant="light" className="text-gray-400 hover:text-red-500" isLoading={deleting === kelas.id} onPress={() => handleDelete(kelas.id)}>
+                    <Button isIconOnly size="sm" variant="light" className="text-gray-400 hover:text-red-500" isLoading={deleting === kelas.id} onPress={() => { setDeleteError(""); setDeleteTarget(kelas); }}>
                       <Trash size={14} />
                     </Button>
                   </div>
@@ -380,6 +383,18 @@ export default function KelasPage() {
           )}
         </ModalContent>
       </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <DeleteModal
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDelete}
+        title="Hapus Kelas"
+        description="Apakah Anda yakin ingin menghapus kelas ini? Semua data terkait kelas ini akan hilang dan tidak dapat dikembalikan."
+        itemName={deleteTarget?.nama_kelas}
+        isLoading={!!deleting}
+        error={deleteError}
+      />
     </div>
   );
 }
