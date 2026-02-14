@@ -7,6 +7,7 @@ import { Avatar } from "@heroui/avatar";
 import { Skeleton } from "@heroui/skeleton";
 import { Select, SelectItem } from "@heroui/select";
 import { TopBar } from "@/components/top-bar";
+import { useCurrentUser } from "@/hooks/use-swr-hooks";
 import { 
   Download,
   MagnifyingGlass,
@@ -43,6 +44,8 @@ export default function KartuPresensiPage() {
   const [kelasList, setKelasList] = useState<KelasItem[]>([]);
   const [filterKelas, setFilterKelas] = useState("");
   const [exporting, setExporting] = useState(false);
+  const { data: currentUser } = useCurrentUser();
+  const tenantId = currentUser?.tenant?.id || "";
 
   useEffect(() => {
     fetch("/api/siswa?limit=500")
@@ -122,7 +125,7 @@ export default function KartuPresensiPage() {
                 </div>
               </div>
               <div style="background: white; padding: 16px; border-radius: 16px;">
-                <img src="https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=PRESENSI:${student.nisn}:${encodeURIComponent(student.nama_lengkap)}" width="160" height="160" />
+                <img src="https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(JSON.stringify({tenant_id:'${tenantId}',siswa_id:'${student.id}'}))}" width="160" height="160" />
               </div>
             </div>
           </div>
@@ -332,7 +335,7 @@ export default function KartuPresensiPage() {
                       <div className="flex justify-end">
                         <div className="bg-white p-4 rounded-xl shadow-2xl">
                           <QRCodeSVG
-                            value={`PRESENSI:${selectedStudent.nisn}:${selectedStudent.nama_lengkap}`}
+                            value={JSON.stringify({ tenant_id: tenantId, siswa_id: selectedStudent.id })}
                             size={180}
                             level="H"
                             includeMargin={true}

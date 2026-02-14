@@ -91,12 +91,14 @@ export default function PresensiPage() {
     setScanResult(null);
 
     try {
-      // QR content could be siswa_id directly or JSON
+      // QR content: JSON { tenant_id, siswa_id } or plain siswa_id
       let siswaId = decodedText;
+      let tenantId: string | undefined;
       try {
         const parsed = JSON.parse(decodedText);
         if (parsed.siswa_id) siswaId = parsed.siswa_id;
         else if (parsed.id) siswaId = parsed.id;
+        if (parsed.tenant_id) tenantId = parsed.tenant_id;
       } catch {
         // Not JSON, use raw text as siswa_id
       }
@@ -104,7 +106,7 @@ export default function PresensiPage() {
       const res = await fetch("/api/presensi/scan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ siswa_id: siswaId }),
+        body: JSON.stringify({ siswa_id: siswaId, tenant_id: tenantId }),
       });
       const json = await res.json();
 
@@ -143,16 +145,27 @@ export default function PresensiPage() {
     }, 3000);
   }, [processing, mutateStats, refreshRecent]);
 
+  const stopScanner = useCallback(async () => {
+    if (html5QrRef.current) {
+      const scanner = html5QrRef.current as { stop: () => Promise<void>; clear: () => void; isScanning?: boolean; getState: () => number };
+      html5QrRef.current = null;
+      try {
+        const state = scanner.getState();
+        // state 2 = scanning, need to stop first
+        if (state === 2) {
+          await scanner.stop();
+        }
+        scanner.clear();
+      } catch {
+        try { scanner.clear(); } catch { /* ignore */ }
+      }
+    }
+  }, []);
+
   // Start/stop QR scanner
   useEffect(() => {
     if (!cameraActive) {
-      // Stop scanner
-      if (html5QrRef.current) {
-        const scanner = html5QrRef.current as { stop: () => Promise<void>; clear: () => void };
-        scanner.stop().catch(() => {});
-        scanner.clear();
-        html5QrRef.current = null;
-      }
+      stopScanner();
       return;
     }
 
@@ -193,14 +206,9 @@ export default function PresensiPage() {
 
     return () => {
       mounted = false;
-      if (html5QrRef.current) {
-        const scanner = html5QrRef.current as { stop: () => Promise<void>; clear: () => void };
-        scanner.stop().catch(() => {});
-        scanner.clear();
-        html5QrRef.current = null;
-      }
+      stopScanner();
     };
-  }, [cameraActive, handleQrScan]);
+  }, [cameraActive, handleQrScan, stopScanner]);
 
   const stopCamera = () => {
     setCameraActive(false);

@@ -6,10 +6,15 @@ export async function POST(request: NextRequest) {
   try {
     const { tenantId, userId } = await requireTenantAuth();
     const body = await request.json();
-    const { siswa_id } = body;
+    const { siswa_id, tenant_id: qrTenantId } = body;
 
     if (!siswa_id) {
       return NextResponse.json({ error: "QR Code tidak valid" }, { status: 400 });
+    }
+
+    // Validate tenant_id from QR matches the logged-in tenant
+    if (qrTenantId && qrTenantId !== tenantId) {
+      return NextResponse.json({ error: "QR Code bukan milik sekolah ini" }, { status: 403 });
     }
 
     // Verify siswa belongs to this tenant
