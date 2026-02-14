@@ -153,13 +153,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onClose }) => {
             <Gear size={20} weight={isActive("/settings") ? "fill" : "regular"} className="flex-shrink-0" />
             <span className="font-medium text-[13px] leading-none">Pengaturan</span>
           </Link>
-          <Link
-            href="/login"
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 no-underline text-red-400 hover:bg-red-50 hover:text-red-600"
+          <button
+            onClick={async () => {
+              await fetch("/api/auth/logout", { method: "POST" });
+              window.location.href = "/login";
+            }}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-red-400 hover:bg-red-50 hover:text-red-600"
           >
             <SignOut size={20} className="flex-shrink-0" />
             <span className="font-medium text-[13px] leading-none">Keluar</span>
-          </Link>
+          </button>
         </div>
       </aside>
     </>

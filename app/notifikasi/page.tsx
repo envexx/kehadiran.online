@@ -20,21 +20,19 @@ import {
 } from "phosphor-react";
 
 export default function NotifikasiPage() {
-  const stats = [
-    { label: "Terkirim", value: "12,450", icon: CheckCircle, iconBg: "bg-emerald-50", iconColor: "text-emerald-600" },
-    { label: "Pending", value: "23", icon: Clock, iconBg: "bg-amber-50", iconColor: "text-amber-600" },
-    { label: "Gagal", value: "8", icon: XCircle, iconBg: "bg-red-50", iconColor: "text-red-500" },
-  ];
+  const [page, setPage] = useState(1);
+  const [statusFilter, setStatusFilter] = useState("");
 
-  const notifications = [
-    { id: 1, siswa: "Ahmad Rizki Maulana", tujuan: "6281234567890", jenis: "Hadir", pesan: "Ahmad Rizki telah hadir di sekolah pada 08:15", status: "sent", waktu: "08:15:30" },
-    { id: 2, siswa: "Siti Nurhaliza", tujuan: "6281234567891", jenis: "Hadir", pesan: "Siti Nurhaliza telah hadir di sekolah pada 08:14", status: "sent", waktu: "08:14:15" },
-    { id: 3, siswa: "Budi Santoso", tujuan: "6281234567892", jenis: "Terlambat", pesan: "Budi Santoso terlambat hadir di sekolah pada 08:35", status: "sent", waktu: "08:35:22" },
-    { id: 4, siswa: "Dewi Lestari", tujuan: "6281234567893", jenis: "Alpha", pesan: "Dewi Lestari tidak hadir di sekolah hari ini", status: "pending", waktu: "09:00:00" },
-    { id: 5, siswa: "Eko Prasetyo", tujuan: "6281234567894", jenis: "Hadir", pesan: "Eko Prasetyo telah hadir di sekolah pada 08:11", status: "sent", waktu: "08:11:45" },
-    { id: 6, siswa: "Fitri Handayani", tujuan: "6281234567895", jenis: "Alpha", pesan: "Fitri Handayani tidak hadir di sekolah hari ini", status: "failed", waktu: "09:00:05" },
-    { id: 7, siswa: "Gilang Ramadhan", tujuan: "6281234567896", jenis: "Hadir", pesan: "Gilang Ramadhan telah hadir di sekolah pada 07:55", status: "sent", waktu: "07:55:10" },
-    { id: 8, siswa: "Hani Rahmawati", tujuan: "6281234567897", jenis: "Hadir", pesan: "Hani Rahmawati telah hadir di sekolah pada 08:02", status: "sent", waktu: "08:02:33" },
+  const { data: notifData, isLoading } = useNotifikasi({ status: statusFilter || undefined, page, limit: 20 });
+  const { data: statsData } = useNotifikasiStats();
+
+  const notifications = notifData?.data || [];
+  const totalPages = Math.ceil((notifData?.total || 0) / 20);
+
+  const stats = [
+    { label: "Terkirim", value: statsData ? statsData.sent.toLocaleString() : "—", icon: CheckCircle, iconBg: "bg-emerald-50", iconColor: "text-emerald-600" },
+    { label: "Pending", value: statsData ? statsData.pending.toLocaleString() : "—", icon: Clock, iconBg: "bg-amber-50", iconColor: "text-amber-600" },
+    { label: "Gagal", value: statsData ? statsData.failed.toLocaleString() : "—", icon: XCircle, iconBg: "bg-red-50", iconColor: "text-red-500" },
   ];
 
   const statusConfig = (status: string) => {
@@ -106,7 +104,12 @@ export default function NotifikasiPage() {
           </div>
 
           <div className="divide-y divide-gray-50">
-            {notifications.map((notif) => {
+            {notifications.length === 0 && !isLoading && (
+              <div className="px-6 py-12 text-center">
+                <p className="text-sm text-gray-400">Belum ada notifikasi</p>
+              </div>
+            )}
+            {notifications.map((notif: { id: string; siswa: string; nomor_tujuan: string; jenis: string; pesan: string; status: string; sent_at: string | null }) => {
               const sc = statusConfig(notif.status);
               return (
                 <div key={notif.id} className="px-6 py-3.5 flex items-center gap-4 hover:bg-gray-50/50 transition-colors">
@@ -116,18 +119,18 @@ export default function NotifikasiPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-0.5">
                       <p className="text-sm font-medium text-gray-900">{notif.siswa}</p>
-                      <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${jenisColor(notif.jenis)}`}>
+                      <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${jenisColor(notif.jenis || '')}`}>
                         {notif.jenis}
                       </span>
                     </div>
                     <p className="text-xs text-gray-400 truncate">{notif.pesan}</p>
                   </div>
                   <div className="flex items-center gap-3 flex-shrink-0">
-                    <span className="text-xs text-gray-400 font-mono">{notif.tujuan}</span>
+                    <span className="text-xs text-gray-400 font-mono">{notif.nomor_tujuan}</span>
                     <Chip size="sm" variant="flat" color={sc.color} className="text-[10px]">
                       {sc.label}
                     </Chip>
-                    <span className="text-xs text-gray-400">{notif.waktu}</span>
+                    <span className="text-xs text-gray-400">{notif.sent_at ? new Date(notif.sent_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '—'}</span>
                     {notif.status === "failed" && (
                       <Button isIconOnly size="sm" variant="light" className="text-blue-600">
                         <ArrowClockwise size={14} />
@@ -140,8 +143,8 @@ export default function NotifikasiPage() {
           </div>
 
           <div className="px-6 py-4 flex items-center justify-between border-t border-gray-50">
-            <p className="text-xs text-gray-400">Menampilkan 1-8 dari 12,481 notifikasi</p>
-            <Pagination total={1560} initialPage={1} size="sm" />
+            <p className="text-xs text-gray-400">Menampilkan {notifications.length} dari {notifData?.total || 0} notifikasi</p>
+            <Pagination total={totalPages || 1} page={page} onChange={setPage} size="sm" />
           </div>
         </div>
       </div>

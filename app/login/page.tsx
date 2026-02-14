@@ -20,14 +20,26 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!email || !password) { setError("Email dan password wajib diisi"); return; }
     setIsLoading(true);
-    // TODO: Implement actual auth
-    setTimeout(() => {
+    setError("");
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error || "Login gagal"); setIsLoading(false); return; }
       window.location.href = "/dashboard";
-    }, 1000);
+    } catch {
+      setError("Terjadi kesalahan. Coba lagi.");
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -98,6 +110,12 @@ export default function LoginPage() {
             <h2 className="text-2xl font-bold text-gray-900">Selamat Datang</h2>
             <p className="text-gray-500">Masuk ke akun Anda untuk melanjutkan</p>
           </div>
+
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl px-4 py-3 mb-2">
+              {error}
+            </div>
+          )}
 
           <form onSubmit={handleLogin} className="space-y-5">
             <Input

@@ -8,7 +8,7 @@ import { Skeleton } from "@heroui/skeleton";
 import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, useDisclosure } from "@heroui/modal";
 import { Select, SelectItem } from "@heroui/select";
 import { TopBar } from "@/components/top-bar";
-import { useKelas, useKelasStats } from "@/hooks/use-swr-hooks";
+import { useKelas, useKelasStats, useSettings } from "@/hooks/use-swr-hooks";
 import Link from "next/link";
 import { 
   Plus,
@@ -52,6 +52,17 @@ export default function KelasPage() {
   useEffect(() => {
     fetch("/api/guru").then(r => r.json()).then(d => { if (d.data) setGuruList(d.data); }).catch(() => {});
   }, []);
+
+  // Auto-populate tahun ajaran & semester from tenant settings
+  const { data: settingsData } = useSettings();
+  useEffect(() => {
+    if (settingsData?.data) {
+      const ta = settingsData.data.find((s: { key: string; value: string }) => s.key === "tahun_ajaran");
+      const sm = settingsData.data.find((s: { key: string; value: string }) => s.key === "semester");
+      if (ta && !fTahunAjaran) setFTahunAjaran(ta.value);
+      if (sm && !fSemester) setFSemester(sm.value);
+    }
+  }, [settingsData]);
 
   const { data: kelasData, isLoading, mutate } = useKelas();
   const { data: statsData, mutate: mutateStats } = useKelasStats();
@@ -235,9 +246,18 @@ export default function KelasPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <Input label="Nama Kelas" placeholder="Contoh: XII RPL 1" size="sm" isRequired value={fNama} onValueChange={setFNama} />
                   <Select label="Tingkat" placeholder="Pilih tingkat" size="sm" isRequired selectedKeys={fTingkat ? [fTingkat] : []} onChange={(e) => setFTingkat(e.target.value)}>
-                    <SelectItem key="X">X</SelectItem>
-                    <SelectItem key="XI">XI</SelectItem>
-                    <SelectItem key="XII">XII</SelectItem>
+                    <SelectItem key="1">Kelas 1</SelectItem>
+                    <SelectItem key="2">Kelas 2</SelectItem>
+                    <SelectItem key="3">Kelas 3</SelectItem>
+                    <SelectItem key="4">Kelas 4</SelectItem>
+                    <SelectItem key="5">Kelas 5</SelectItem>
+                    <SelectItem key="6">Kelas 6</SelectItem>
+                    <SelectItem key="7">Kelas 7</SelectItem>
+                    <SelectItem key="8">Kelas 8</SelectItem>
+                    <SelectItem key="9">Kelas 9</SelectItem>
+                    <SelectItem key="10">Kelas 10</SelectItem>
+                    <SelectItem key="11">Kelas 11</SelectItem>
+                    <SelectItem key="12">Kelas 12</SelectItem>
                   </Select>
                   <Input label="Jurusan" placeholder="Contoh: RPL, TKJ" size="sm" value={fJurusan} onValueChange={setFJurusan} />
                   <Input label="Kapasitas" placeholder="40" type="number" size="sm" value={fKapasitas} onValueChange={setFKapasitas} />

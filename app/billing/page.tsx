@@ -16,7 +16,10 @@ import {
 } from "phosphor-react";
 
 export default function BillingPage() {
-  const currentPlan = "pro";
+  const { data: subData } = useSubscription();
+  const { data: invData } = useInvoices();
+
+  const currentPlan = subData?.plan || "free_trial";
 
   const plans = [
     {
@@ -52,12 +55,14 @@ export default function BillingPage() {
     },
   ];
 
-  const invoices = [
-    { id: "INV-2025-001", date: "1 Jun 2025", amount: "Rp 599.000", status: "Lunas", method: "Transfer Bank" },
-    { id: "INV-2025-002", date: "1 Mei 2025", amount: "Rp 599.000", status: "Lunas", method: "Transfer Bank" },
-    { id: "INV-2025-003", date: "1 Apr 2025", amount: "Rp 599.000", status: "Lunas", method: "QRIS" },
-    { id: "INV-2025-004", date: "1 Mar 2025", amount: "Rp 599.000", status: "Lunas", method: "Transfer Bank" },
-  ];
+  const invoices: { id: string; date: string; amount: string; status: string; method: string }[] =
+    invData?.data?.map((inv: { id: string; invoice_number: string; amount: number; status: string; issued_at: string; payment_method: string | null }) => ({
+      id: inv.invoice_number,
+      date: new Date(inv.issued_at).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" }),
+      amount: `Rp ${inv.amount.toLocaleString("id-ID")}`,
+      status: inv.status === "paid" ? "Lunas" : inv.status === "pending" ? "Menunggu" : inv.status,
+      method: inv.payment_method || "—",
+    })) || [];
 
   return (
     <div className="min-h-screen">
@@ -73,12 +78,15 @@ export default function BillingPage() {
               <div className="flex items-center gap-2 mb-2">
                 <Chip size="sm" className="bg-white/20 text-white border-0">Paket Aktif</Chip>
               </div>
-              <h2 className="text-2xl font-bold">Pro Plan</h2>
-              <p className="text-blue-100 mt-1">Berlaku hingga 1 Juli 2025 &middot; Perpanjangan otomatis</p>
+              <h2 className="text-2xl font-bold">{subData ? subData.plan.charAt(0).toUpperCase() + subData.plan.slice(1).replace('_', ' ') : '—'} Plan</h2>
+              <p className="text-blue-100 mt-1">
+                {subData?.ended_at ? `Berlaku hingga ${new Date(subData.ended_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}` : 'Memuat...'}
+                {subData?.status === 'active' && ' · Perpanjangan otomatis'}
+              </p>
               <div className="flex items-center gap-4 mt-3">
                 <div>
-                  <p className="text-3xl font-bold">Rp 599.000</p>
-                  <p className="text-blue-200 text-sm">/bulan</p>
+                  <p className="text-3xl font-bold">{subData ? `Rp ${subData.amount.toLocaleString('id-ID')}` : '—'}</p>
+                  <p className="text-blue-200 text-sm">/{subData?.billing_cycle || 'bulan'}</p>
                 </div>
               </div>
             </div>

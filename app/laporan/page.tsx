@@ -3,6 +3,7 @@
 import { Button } from "@heroui/button";
 import { Select, SelectItem } from "@heroui/select";
 import { Input } from "@heroui/input";
+import { Skeleton } from "@heroui/skeleton";
 import { TopBar } from "@/components/top-bar";
 import { useLaporan } from "@/hooks/use-swr-hooks";
 import { 
@@ -21,28 +22,23 @@ import {
 } from "phosphor-react";
 
 export default function LaporanPage() {
-  const monthlyData = [
-    { bulan: "Jan", hadir: 95.2, izin: 3.1, alpha: 1.7 },
-    { bulan: "Feb", hadir: 94.8, izin: 3.5, alpha: 1.7 },
-    { bulan: "Mar", hadir: 96.1, izin: 2.8, alpha: 1.1 },
-    { bulan: "Apr", hadir: 93.5, izin: 4.2, alpha: 2.3 },
-    { bulan: "Mei", hadir: 94.9, izin: 3.3, alpha: 1.8 },
-  ];
+  const { data: laporanData, isLoading } = useLaporan();
 
-  const classReport = [
-    { kelas: "XII RPL 1", siswa: 36, hadir: 34, izin: 1, alpha: 1, persentase: 94.4 },
-    { kelas: "XII RPL 2", siswa: 35, hadir: 33, izin: 2, alpha: 0, persentase: 94.3 },
-    { kelas: "XI RPL 1", siswa: 38, hadir: 36, izin: 1, alpha: 1, persentase: 94.7 },
-    { kelas: "XI RPL 2", siswa: 36, hadir: 34, izin: 2, alpha: 0, persentase: 94.4 },
-    { kelas: "X RPL 1", siswa: 40, hadir: 38, izin: 1, alpha: 1, persentase: 95.0 },
-    { kelas: "X RPL 2", siswa: 38, hadir: 36, izin: 1, alpha: 1, persentase: 94.7 },
-  ];
+  const classReport: { kelas: string; siswa: number; hadir: number; izin: number; alpha: number; persentase: number }[] =
+    laporanData?.perKelas?.map((k: { kelas: string; hadir: number; siswa: number }) => ({
+      kelas: k.kelas,
+      siswa: k.siswa,
+      hadir: Math.round((k.hadir / 100) * k.siswa),
+      izin: 0,
+      alpha: 0,
+      persentase: k.hadir,
+    })) || [];
 
   const stats = [
-    { label: "Rata-rata Kehadiran", value: "94.2%", change: "+2.3%", trend: "up", icon: ChartLineUp, iconBg: "bg-blue-50", iconColor: "text-blue-600" },
-    { label: "Total Hadir", value: "23,450", change: "+5.1%", trend: "up", icon: CheckCircle, iconBg: "bg-emerald-50", iconColor: "text-emerald-600" },
-    { label: "Total Izin/Sakit", value: "892", change: "-1.2%", trend: "down", icon: Clock, iconBg: "bg-amber-50", iconColor: "text-amber-600" },
-    { label: "Total Alpha", value: "458", change: "-3.5%", trend: "down", icon: XCircle, iconBg: "bg-red-50", iconColor: "text-red-500" },
+    { label: "Rata-rata Kehadiran", value: laporanData ? `${laporanData.rataRataKehadiran}%` : "—", change: "", trend: "up", icon: ChartLineUp, iconBg: "bg-blue-50", iconColor: "text-blue-600" },
+    { label: "Total Hadir", value: laporanData ? laporanData.totalHadir.toLocaleString() : "—", change: "", trend: "up", icon: CheckCircle, iconBg: "bg-emerald-50", iconColor: "text-emerald-600" },
+    { label: "Total Izin/Sakit", value: laporanData ? (laporanData.totalIzin + laporanData.totalSakit).toLocaleString() : "—", change: "", trend: "down", icon: Clock, iconBg: "bg-amber-50", iconColor: "text-amber-600" },
+    { label: "Total Alpha", value: laporanData ? laporanData.totalAlpha.toLocaleString() : "—", change: "", trend: "down", icon: XCircle, iconBg: "bg-red-50", iconColor: "text-red-500" },
   ];
 
   return (
@@ -112,33 +108,43 @@ export default function LaporanPage() {
           <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-50">
               <h3 className="font-semibold text-gray-900">Tren Kehadiran Bulanan</h3>
-              <p className="text-xs text-gray-400 mt-0.5">Semester Genap 2024/2025</p>
+              <p className="text-xs text-gray-400 mt-0.5">Data kehadiran per bulan</p>
             </div>
-            <div className="p-6 space-y-4">
-              {monthlyData.map((data, index) => (
-                <div key={index}>
-                  <div className="flex items-center justify-between text-sm mb-2">
-                    <span className="text-xs font-medium text-gray-500 w-8">{data.bulan}</span>
-                    <span className="text-xs font-semibold text-emerald-600">{data.hadir}%</span>
-                  </div>
-                  <div className="flex gap-0.5 h-6 rounded-lg overflow-hidden">
-                    <div className="bg-emerald-500 rounded-l-lg flex items-center justify-center" style={{ width: `${data.hadir}%` }}>
-                      <span className="text-[9px] text-white font-medium">Hadir</span>
+            <div className="p-6">
+              {isLoading ? (
+                <div className="space-y-4">
+                  {[1,2,3,4,5].map(i => <Skeleton key={i} className="w-full h-8 rounded" />)}
+                </div>
+              ) : classReport.length > 0 ? (
+                <div className="space-y-4">
+                  {classReport.slice(0, 5).map((data, index) => (
+                    <div key={index}>
+                      <div className="flex items-center justify-between text-sm mb-2">
+                        <span className="text-xs font-medium text-gray-500">{data.kelas}</span>
+                        <span className="text-xs font-semibold text-emerald-600">{data.persentase}%</span>
+                      </div>
+                      <div className="flex gap-0.5 h-6 rounded-lg overflow-hidden">
+                        <div className="bg-emerald-500 rounded-l-lg flex items-center justify-center" style={{ width: `${Math.max(data.persentase, 1)}%` }}>
+                          <span className="text-[9px] text-white font-medium">Hadir</span>
+                        </div>
+                        {(100 - data.persentase) > 0 && (
+                          <div className="bg-red-400 rounded-r-lg flex items-center justify-center" style={{ width: `${100 - data.persentase}%` }}>
+                            <span className="text-[9px] text-white font-medium">{(100 - data.persentase).toFixed(1)}%</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <div className="bg-amber-400 flex items-center justify-center" style={{ width: `${data.izin * 3}%` }}>
-                      <span className="text-[9px] text-white font-medium">{data.izin}%</span>
-                    </div>
-                    <div className="bg-red-400 rounded-r-lg flex items-center justify-center" style={{ width: `${data.alpha * 3}%` }}>
-                      <span className="text-[9px] text-white font-medium">{data.alpha}%</span>
-                    </div>
+                  ))}
+                  <div className="flex items-center gap-4 pt-2 text-xs text-gray-500">
+                    <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm bg-emerald-500" /> Hadir</div>
+                    <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm bg-red-400" /> Tidak Hadir</div>
                   </div>
                 </div>
-              ))}
-              <div className="flex items-center gap-4 pt-2 text-xs text-gray-500">
-                <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm bg-emerald-500" /> Hadir</div>
-                <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm bg-amber-400" /> Izin/Sakit</div>
-                <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm bg-red-400" /> Alpha</div>
-              </div>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-sm text-gray-400">Belum ada data presensi</p>
+                </div>
+              )}
             </div>
           </div>
 

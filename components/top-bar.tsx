@@ -4,6 +4,7 @@ import React from "react";
 import { Input } from "@heroui/input";
 import { Button } from "@heroui/button";
 import { Avatar } from "@heroui/avatar";
+import { useCurrentUser } from "@/hooks/use-swr-hooks";
 import { 
   MagnifyingGlass, 
   Bell
@@ -24,6 +25,11 @@ export const TopBar: React.FC<TopBarProps> = ({
   searchPlaceholder = "Cari...",
   children 
 }) => {
+  const { data: meData } = useCurrentUser();
+  const userName = meData?.user?.nama_lengkap || "—";
+  const userRole = meData?.user?.role === "admin" ? "Administrator" : meData?.user?.role || "—";
+  const userFoto = meData?.user?.foto || undefined;
+
   return (
     <div className="bg-white/80 backdrop-blur-md border-b border-gray-100 px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between sticky top-0 z-30">
       <div className="flex items-center gap-3 sm:gap-6 flex-1 min-w-0">
@@ -57,13 +63,14 @@ export const TopBar: React.FC<TopBarProps> = ({
         <div className="w-px h-8 bg-gray-200 mx-0.5 sm:mx-1 hidden sm:block" />
         <div className="hidden sm:flex items-center gap-3 cursor-pointer hover:bg-gray-50 rounded-lg px-2 py-1.5 transition-colors">
           <Avatar
-            src="https://i.pravatar.cc/150?u=admin"
+            name={userName}
+            src={userFoto}
             size="sm"
             className="w-8 h-8"
           />
           <div className="hidden md:block">
-            <p className="text-sm font-medium text-gray-900 leading-tight">Admin Sekolah</p>
-            <p className="text-xs text-gray-400 leading-tight">Administrator</p>
+            <p className="text-sm font-medium text-gray-900 leading-tight">{userName}</p>
+            <p className="text-xs text-gray-400 leading-tight">{userRole}</p>
           </div>
         </div>
       </div>

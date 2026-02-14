@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@heroui/button";
 import { Input } from "@heroui/input";
 import { Avatar } from "@heroui/avatar";
+import { Skeleton } from "@heroui/skeleton";
 import { TopBar } from "@/components/top-bar";
 import { 
   Download,
@@ -15,21 +16,31 @@ import {
 import { QRCodeSVG } from "qrcode.react";
 import { toPng } from "html-to-image";
 
+interface StudentItem {
+  id: string;
+  nisn: string;
+  nama_lengkap: string;
+  kelas: string;
+  foto: string | null;
+}
+
 export default function KartuPresensiPage() {
   const cardRef = useRef<HTMLDivElement>(null);
   const [searchNIS, setSearchNIS] = useState("");
-  const [selectedStudent, setSelectedStudent] = useState<any>(null);
+  const [selectedStudent, setSelectedStudent] = useState<StudentItem | null>(null);
+  const [students, setStudents] = useState<StudentItem[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const students = [
-    { id: 1, nisn: "0012345678", nama: "Ahmad Rizki Maulana", kelas: "XII RPL 1", foto: "https://i.pravatar.cc/150?u=student1", berlaku: "30/6/2027" },
-    { id: 2, nisn: "0012345679", nama: "Siti Nurhaliza", kelas: "XII RPL 1", foto: "https://i.pravatar.cc/150?u=student2", berlaku: "30/6/2027" },
-    { id: 3, nisn: "0012345680", nama: "Budi Santoso", kelas: "XII RPL 2", foto: "https://i.pravatar.cc/150?u=student3", berlaku: "30/6/2027" },
-    { id: 4, nisn: "0012345681", nama: "Dewi Lestari", kelas: "XII RPL 1", foto: "https://i.pravatar.cc/150?u=student4", berlaku: "30/6/2027" },
-    { id: 5, nisn: "0012345682", nama: "Eko Prasetyo", kelas: "XII RPL 2", foto: "https://i.pravatar.cc/150?u=student5", berlaku: "30/6/2027" },
-  ];
+  useEffect(() => {
+    fetch("/api/siswa?limit=100")
+      .then(r => r.json())
+      .then(d => { if (d.data) setStudents(d.data); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
 
   const handleSearch = () => {
-    const student = students.find(s => s.nisn === searchNIS || s.nama.toLowerCase().includes(searchNIS.toLowerCase()));
+    const student = students.find(s => s.nisn === searchNIS || s.nama_lengkap.toLowerCase().includes(searchNIS.toLowerCase()));
     if (student) setSelectedStudent(student);
   };
 
@@ -82,9 +93,9 @@ export default function KartuPresensiPage() {
                 <>
                   <div className="p-3 bg-blue-50 rounded-xl">
                     <div className="flex items-center gap-3">
-                      <Avatar src={selectedStudent.foto} size="sm" className="w-10 h-10" />
+                      <Avatar src={selectedStudent.foto || undefined} size="sm" className="w-10 h-10" />
                       <div>
-                        <p className="text-sm font-semibold text-gray-900">{selectedStudent.nama}</p>
+                        <p className="text-sm font-semibold text-gray-900">{selectedStudent.nama_lengkap}</p>
                         <p className="text-xs text-gray-500">NISN: {selectedStudent.nisn} &middot; {selectedStudent.kelas}</p>
                       </div>
                     </div>
@@ -121,9 +132,9 @@ export default function KartuPresensiPage() {
                     }`}
                     onClick={() => setSelectedStudent(student)}
                   >
-                    <Avatar src={student.foto} size="sm" className="w-8 h-8" />
+                    <Avatar src={student.foto || undefined} size="sm" className="w-8 h-8" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">{student.nama}</p>
+                      <p className="text-sm font-medium text-gray-900 truncate">{student.nama_lengkap}</p>
                       <p className="text-xs text-gray-400">{student.nisn} &middot; {student.kelas}</p>
                     </div>
                   </button>
@@ -174,7 +185,7 @@ export default function KartuPresensiPage() {
                         </div>
                         <div>
                           <p className="text-white/60 text-xs uppercase tracking-wider mb-1">Nama Lengkap</p>
-                          <p className="text-white text-xl font-bold">{selectedStudent.nama}</p>
+                          <p className="text-white text-xl font-bold">{selectedStudent.nama_lengkap}</p>
                         </div>
                         <div className="flex gap-6">
                           <div>
@@ -183,7 +194,7 @@ export default function KartuPresensiPage() {
                           </div>
                           <div>
                             <p className="text-white/60 text-xs uppercase tracking-wider mb-1">Berlaku s/d</p>
-                            <p className="text-white text-lg font-bold">{selectedStudent.berlaku}</p>
+                            <p className="text-white text-lg font-bold">30/6/{new Date().getFullYear() + 1}</p>
                           </div>
                         </div>
                       </div>
@@ -191,7 +202,7 @@ export default function KartuPresensiPage() {
                       <div className="flex justify-end">
                         <div className="bg-white p-4 rounded-xl shadow-2xl">
                           <QRCodeSVG
-                            value={`PRESENSI:${selectedStudent.nisn}:${selectedStudent.nama}`}
+                            value={`PRESENSI:${selectedStudent.nisn}:${selectedStudent.nama_lengkap}`}
                             size={180}
                             level="H"
                             includeMargin={true}

@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@heroui/button";
 import { Input } from "@heroui/input";
 import { Avatar } from "@heroui/avatar";
 import { Switch } from "@heroui/switch";
 import { Select, SelectItem } from "@heroui/select";
 import { TopBar } from "@/components/top-bar";
-import { useSettings } from "@/hooks/use-swr-hooks";
+import { useSettings, useSubscription, useCurrentUser } from "@/hooks/use-swr-hooks";
 import { 
   User,
   Lock,
@@ -30,8 +30,72 @@ const tabs = [
   { key: "system", label: "Sistem", icon: Database },
 ];
 
+interface SettingItem { key: string; value: string; category: string }
+
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState("profile");
+  const { data: settingsData, mutate: mutateSettings } = useSettings(undefined, undefined);
+  const { data: subData } = useSubscription();
+  const { data: meData, mutate: mutateMe } = useCurrentUser();
+  const [saving, setSaving] = useState(false);
+
+  // Profile form state
+  const [pNama, setPNama] = useState("");
+  const [pUsername, setPUsername] = useState("");
+  const [pEmail, setPEmail] = useState("");
+  const [pTelp, setPTelp] = useState("");
+
+  // School form state
+  const [sNama, setSNama] = useState("");
+  const [sAlamat, setSAlamat] = useState("");
+  const [sEmail, setSEmail] = useState("");
+  const [sTelp, setSTelp] = useState("");
+  const [sTahunAjaran, setSTahunAjaran] = useState("");
+  const [sSemester, setSSemester] = useState("");
+
+  // Populate form from API data
+  useEffect(() => {
+    if (meData?.user) {
+      setPNama(meData.user.nama_lengkap || "");
+      setPUsername(meData.user.username || "");
+      setPEmail(meData.user.email || "");
+      setPTelp(meData.user.nomor_telepon || "");
+    }
+    if (meData?.tenant) {
+      setSNama(meData.tenant.nama_sekolah || "");
+      setSAlamat(meData.tenant.alamat || "");
+      setSEmail(meData.tenant.email || "");
+      setSTelp(meData.tenant.nomor_telepon || "");
+    }
+  }, [meData]);
+
+  // Populate tahun ajaran & semester from settings
+  useEffect(() => {
+    if (settingsData?.data) {
+      const ta = settingsData.data.find((s: SettingItem) => s.key === "tahun_ajaran");
+      const sm = settingsData.data.find((s: SettingItem) => s.key === "semester");
+      if (ta) setSTahunAjaran(ta.value);
+      if (sm) setSSemester(sm.value);
+    }
+  }, [settingsData]);
+
+  const getVal = (key: string, fallback = "") => {
+    const item = settingsData?.data?.find((s: SettingItem) => s.key === key);
+    return item?.value || fallback;
+  };
+
+  const handleSaveSetting = async (key: string, value: string, category: string) => {
+    setSaving(true);
+    try {
+      await fetch("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key, value, category }),
+      });
+      mutateSettings();
+    } catch {}
+    setSaving(false);
+  };
 
   return (
     <div className="min-h-screen">
@@ -88,61 +152,126 @@ export default function SettingsPage() {
                 </div>
                 <div className="flex items-center gap-5">
                   <div className="relative">
-                    <Avatar src="https://i.pravatar.cc/150?u=admin" className="w-20 h-20" />
+                    <Avatar name={pNama} src={meData?.user?.foto || undefined} className="w-20 h-20" />
                     <button className="absolute bottom-0 right-0 w-7 h-7 bg-blue-600 rounded-full flex items-center justify-center border-2 border-white">
                       <Camera size={12} className="text-white" />
                     </button>
                   </div>
                   <div>
-                    <p className="font-medium text-gray-900">Admin Sekolah</p>
-                    <p className="text-sm text-gray-400">admin@sekolah.com</p>
+                    <p className="font-medium text-gray-900">{pNama || "—"}</p>
+                    <p className="text-sm text-gray-400">{pEmail || "—"}</p>
                     <p className="text-xs text-gray-400 mt-1">JPG, PNG max 2MB</p>
                   </div>
                 </div>
                 <div className="h-px bg-gray-100" />
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Input label="Nama Lengkap" defaultValue="Admin Sekolah" size="sm" classNames={{ inputWrapper: "bg-gray-50 border border-gray-200 shadow-none" }} />
-                  <Input label="Username" defaultValue="admin" size="sm" classNames={{ inputWrapper: "bg-gray-50 border border-gray-200 shadow-none" }} />
-                  <Input label="Email" type="email" defaultValue="admin@sekolah.com" size="sm" classNames={{ inputWrapper: "bg-gray-50 border border-gray-200 shadow-none" }} />
-                  <Input label="Nomor Telepon" defaultValue="081234567890" size="sm" classNames={{ inputWrapper: "bg-gray-50 border border-gray-200 shadow-none" }} />
+                  <Input label="Nama Lengkap" value={pNama} onValueChange={setPNama} size="sm" classNames={{ inputWrapper: "bg-gray-50 border border-gray-200 shadow-none" }} />
+                  <Input label="Username" value={pUsername} onValueChange={setPUsername} size="sm" classNames={{ inputWrapper: "bg-gray-50 border border-gray-200 shadow-none" }} />
+                  <Input label="Email" type="email" value={pEmail} onValueChange={setPEmail} size="sm" classNames={{ inputWrapper: "bg-gray-50 border border-gray-200 shadow-none" }} />
+                  <Input label="Nomor Telepon" value={pTelp} onValueChange={setPTelp} size="sm" classNames={{ inputWrapper: "bg-gray-50 border border-gray-200 shadow-none" }} />
                 </div>
                 <div className="flex justify-end gap-2">
-                  <Button variant="bordered" size="sm" className="border-gray-200">Batal</Button>
-                  <Button color="primary" size="sm" className="bg-blue-600 font-medium">Simpan</Button>
+                  <Button variant="bordered" size="sm" className="border-gray-200" onPress={() => { if (meData?.user) { setPNama(meData.user.nama_lengkap || ""); setPUsername(meData.user.username || ""); setPEmail(meData.user.email || ""); setPTelp(meData.user.nomor_telepon || ""); } }}>Batal</Button>
+                  <Button color="primary" size="sm" className="bg-blue-600 font-medium" isLoading={saving}>Simpan</Button>
                 </div>
               </div>
             )}
 
             {/* School */}
             {activeTab === "school" && (
-              <div className="bg-white rounded-2xl border border-gray-100 p-6 space-y-6">
-                <div>
-                  <h3 className="font-semibold text-gray-900">Informasi Sekolah</h3>
-                  <p className="text-xs text-gray-400 mt-0.5">Kelola data sekolah Anda</p>
+              <div className="space-y-6">
+                <div className="bg-white rounded-2xl border border-gray-100 p-6 space-y-6">
+                  <div>
+                    <h3 className="font-semibold text-gray-900">Informasi Sekolah</h3>
+                    <p className="text-xs text-gray-400 mt-0.5">Kelola data sekolah Anda</p>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Input label="Nama Sekolah" value={sNama} onValueChange={setSNama} size="sm" className="col-span-2" classNames={{ inputWrapper: "bg-gray-50 border border-gray-200 shadow-none" }} />
+                    <Input label="Alamat" value={sAlamat} onValueChange={setSAlamat} size="sm" className="col-span-2" classNames={{ inputWrapper: "bg-gray-50 border border-gray-200 shadow-none" }} />
+                    <Input label="Email Sekolah" value={sEmail} onValueChange={setSEmail} size="sm" classNames={{ inputWrapper: "bg-gray-50 border border-gray-200 shadow-none" }} />
+                    <Input label="Telepon" value={sTelp} onValueChange={setSTelp} size="sm" classNames={{ inputWrapper: "bg-gray-50 border border-gray-200 shadow-none" }} />
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button variant="bordered" size="sm" className="border-gray-200" onPress={() => { if (meData?.tenant) { setSNama(meData.tenant.nama_sekolah || ""); setSAlamat(meData.tenant.alamat || ""); setSEmail(meData.tenant.email || ""); setSTelp(meData.tenant.nomor_telepon || ""); } }}>Batal</Button>
+                    <Button color="primary" size="sm" className="bg-blue-600 font-medium" isLoading={saving}>Simpan</Button>
+                  </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Input label="Nama Sekolah" defaultValue="SMK Negeri 1 Batam" size="sm" className="col-span-2" classNames={{ inputWrapper: "bg-gray-50 border border-gray-200 shadow-none" }} />
-                  <Input label="Alamat" defaultValue="Jl. Pendidikan No. 1, Batam" size="sm" className="col-span-2" classNames={{ inputWrapper: "bg-gray-50 border border-gray-200 shadow-none" }} />
-                  <Input label="Email Sekolah" defaultValue="info@smkn1batam.sch.id" size="sm" classNames={{ inputWrapper: "bg-gray-50 border border-gray-200 shadow-none" }} />
-                  <Input label="Telepon" defaultValue="0778-123456" size="sm" classNames={{ inputWrapper: "bg-gray-50 border border-gray-200 shadow-none" }} />
-                  <Input label="Tahun Ajaran" defaultValue="2024/2025" size="sm" classNames={{ inputWrapper: "bg-gray-50 border border-gray-200 shadow-none" }} />
-                  <Select label="Semester" defaultSelectedKeys={["genap"]} size="sm" classNames={{ trigger: "bg-gray-50 border border-gray-200 shadow-none" }}>
-                    <SelectItem key="ganjil">Ganjil</SelectItem>
-                    <SelectItem key="genap">Genap</SelectItem>
-                  </Select>
+
+                {/* Tahun Ajaran & Semester */}
+                <div className="bg-white rounded-2xl border border-gray-100 p-6 space-y-6">
+                  <div>
+                    <h3 className="font-semibold text-gray-900">Tahun Ajaran & Semester</h3>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      Atur tahun ajaran dan semester aktif. Data tahun ajaran sebelumnya tetap tersimpan dan bisa diakses kembali.
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Select
+                      label="Tahun Ajaran Aktif"
+                      placeholder="Pilih tahun ajaran"
+                      size="sm"
+                      isRequired
+                      selectedKeys={sTahunAjaran ? [sTahunAjaran] : []}
+                      onChange={(e) => setSTahunAjaran(e.target.value)}
+                      classNames={{ trigger: "bg-gray-50 border border-gray-200 shadow-none" }}
+                    >
+                      <SelectItem key="2025/2026">2025/2026</SelectItem>
+                      <SelectItem key="2024/2025">2024/2025</SelectItem>
+                      <SelectItem key="2023/2024">2023/2024</SelectItem>
+                      <SelectItem key="2022/2023">2022/2023</SelectItem>
+                    </Select>
+                    <Select
+                      label="Semester Aktif"
+                      placeholder="Pilih semester"
+                      size="sm"
+                      isRequired
+                      selectedKeys={sSemester ? [sSemester] : []}
+                      onChange={(e) => setSSemester(e.target.value)}
+                      classNames={{ trigger: "bg-gray-50 border border-gray-200 shadow-none" }}
+                    >
+                      <SelectItem key="ganjil">Ganjil</SelectItem>
+                      <SelectItem key="genap">Genap</SelectItem>
+                    </Select>
+                  </div>
+                  <div className="p-3 bg-blue-50 rounded-xl">
+                    <p className="text-xs text-blue-700">
+                      <strong>Info:</strong> Mengubah tahun ajaran atau semester tidak akan menghapus data sebelumnya. 
+                      Semua data presensi, kelas, dan laporan dari tahun ajaran sebelumnya tetap tersimpan dan bisa diakses melalui filter.
+                    </p>
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      color="primary"
+                      size="sm"
+                      className="bg-blue-600 font-medium"
+                      isLoading={saving}
+                      onPress={async () => {
+                        if (!sTahunAjaran || !sSemester) return;
+                        setSaving(true);
+                        try {
+                          await fetch("/api/settings", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key: "tahun_ajaran", value: sTahunAjaran, category: "school" }) });
+                          await fetch("/api/settings", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key: "semester", value: sSemester, category: "school" }) });
+                          mutateSettings();
+                        } catch {}
+                        setSaving(false);
+                      }}
+                    >
+                      Simpan Tahun Ajaran
+                    </Button>
+                  </div>
                 </div>
-                <div className="h-px bg-gray-100" />
-                <div>
-                  <h4 className="font-medium text-gray-900 text-sm mb-3">Mode QR Code</h4>
-                  <Select label="Mode Presensi QR" defaultSelectedKeys={["flexible"]} size="sm" className="max-w-sm" classNames={{ trigger: "bg-gray-50 border border-gray-200 shadow-none" }}>
+
+                {/* Mode QR Code */}
+                <div className="bg-white rounded-2xl border border-gray-100 p-6 space-y-6">
+                  <div>
+                    <h3 className="font-semibold text-gray-900">Mode QR Code</h3>
+                    <p className="text-xs text-gray-400 mt-0.5">Pilih mode presensi QR Code untuk sekolah Anda</p>
+                  </div>
+                  <Select label="Mode Presensi QR" selectedKeys={meData?.tenant?.qr_mode ? [meData.tenant.qr_mode] : ["flexible"]} size="sm" className="max-w-sm" classNames={{ trigger: "bg-gray-50 border border-gray-200 shadow-none" }}>
                     <SelectItem key="gate_only">Gerbang Sekolah Saja</SelectItem>
                     <SelectItem key="class_only">Per Kelas Saja</SelectItem>
                     <SelectItem key="flexible">Fleksibel (Keduanya)</SelectItem>
                   </Select>
-                </div>
-                <div className="flex justify-end gap-2">
-                  <Button variant="bordered" size="sm" className="border-gray-200">Batal</Button>
-                  <Button color="primary" size="sm" className="bg-blue-600 font-medium">Simpan</Button>
                 </div>
               </div>
             )}
@@ -248,9 +377,9 @@ export default function SettingsPage() {
                     {[
                       { label: "Versi Aplikasi", value: "v1.0.0" },
                       { label: "Database", value: "PostgreSQL 15" },
-                      { label: "Storage", value: "2.5 GB / 10 GB" },
-                      { label: "Last Backup", value: "2 jam yang lalu" },
-                      { label: "Plan", value: "Pro" },
+                      { label: "Storage", value: "—" },
+                      { label: "Last Backup", value: "—" },
+                      { label: "Plan", value: subData ? subData.plan.charAt(0).toUpperCase() + subData.plan.slice(1).replace('_', ' ') : "—" },
                     ].map((item, i) => (
                       <div key={i} className="flex justify-between py-3 border-b border-gray-50 last:border-0">
                         <span className="text-sm text-gray-500">{item.label}</span>

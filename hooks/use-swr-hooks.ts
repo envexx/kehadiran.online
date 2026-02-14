@@ -23,6 +23,13 @@ const staticConfig = {
 };
 
 // ============================================
+// Current User / Auth
+// ============================================
+export function useCurrentUser() {
+  return useSWR("/api/auth/me", fetcher, staticConfig);
+}
+
+// ============================================
 // Dashboard
 // ============================================
 export function useDashboardStats(tenantId?: string) {
