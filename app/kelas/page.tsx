@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { Button } from "@heroui/button";
 import { Input } from "@heroui/input";
 import { Avatar } from "@heroui/avatar";
@@ -34,9 +35,48 @@ interface KelasItem {
 
 export default function KelasPage() {
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState("");
 
-  const { data: kelasData, isLoading } = useKelas();
-  const { data: statsData } = useKelasStats();
+  // Form state
+  const [fNama, setFNama] = useState("");
+  const [fTingkat, setFTingkat] = useState("");
+  const [fJurusan, setFJurusan] = useState("");
+  const [fKapasitas, setFKapasitas] = useState("40");
+  const [fTahunAjaran, setFTahunAjaran] = useState("");
+  const [fSemester, setFSemester] = useState("");
+  const [fWaliKelasId, setFWaliKelasId] = useState("");
+
+  // Guru list for wali kelas dropdown
+  const [guruList, setGuruList] = useState<{id:string;nama_guru:string}[]>([]);
+  useEffect(() => {
+    fetch("/api/guru").then(r => r.json()).then(d => { if (d.data) setGuruList(d.data); }).catch(() => {});
+  }, []);
+
+  const { data: kelasData, isLoading, mutate } = useKelas();
+  const { data: statsData, mutate: mutateStats } = useKelasStats();
+
+  const resetForm = () => { setFNama(""); setFTingkat(""); setFJurusan(""); setFKapasitas("40"); setFTahunAjaran(""); setFSemester(""); setFWaliKelasId(""); setFormError(""); };
+
+  const handleSave = async (onClose: () => void) => {
+    if (!fNama.trim() || !fTingkat || !fTahunAjaran || !fSemester) { setFormError("Nama kelas, tingkat, tahun ajaran, dan semester wajib diisi"); return; }
+    setSaving(true); setFormError("");
+    try {
+      const res = await fetch("/api/kelas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nama_kelas: fNama, tingkat: fTingkat, jurusan: fJurusan || null,
+          kapasitas: parseInt(fKapasitas) || 40, tahun_ajaran: fTahunAjaran,
+          semester: fSemester, wali_kelas_id: fWaliKelasId || null,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) { setFormError(json.error || "Gagal menyimpan"); setSaving(false); return; }
+      mutate(); mutateStats(); resetForm(); onClose();
+    } catch { setFormError("Terjadi kesalahan"); }
+    setSaving(false);
+  };
 
   const classes: KelasItem[] = kelasData?.data || [];
 
@@ -191,33 +231,32 @@ export default function KelasPage() {
                 </div>
               </ModalHeader>
               <ModalBody className="py-6">
+                {formError && <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl px-4 py-2 mb-2">{formError}</div>}
                 <div className="grid grid-cols-2 gap-4">
-                  <Input label="Nama Kelas" placeholder="Contoh: XII RPL 1" size="sm" isRequired />
-                  <Select label="Tingkat" placeholder="Pilih tingkat" size="sm" isRequired>
+                  <Input label="Nama Kelas" placeholder="Contoh: XII RPL 1" size="sm" isRequired value={fNama} onValueChange={setFNama} />
+                  <Select label="Tingkat" placeholder="Pilih tingkat" size="sm" isRequired selectedKeys={fTingkat ? [fTingkat] : []} onChange={(e) => setFTingkat(e.target.value)}>
                     <SelectItem key="X">X</SelectItem>
                     <SelectItem key="XI">XI</SelectItem>
                     <SelectItem key="XII">XII</SelectItem>
                   </Select>
-                  <Input label="Jurusan" placeholder="Contoh: RPL, TKJ" size="sm" />
-                  <Input label="Kapasitas" placeholder="40" type="number" size="sm" />
-                  <Select label="Tahun Ajaran" placeholder="Pilih" size="sm" isRequired>
+                  <Input label="Jurusan" placeholder="Contoh: RPL, TKJ" size="sm" value={fJurusan} onValueChange={setFJurusan} />
+                  <Input label="Kapasitas" placeholder="40" type="number" size="sm" value={fKapasitas} onValueChange={setFKapasitas} />
+                  <Select label="Tahun Ajaran" placeholder="Pilih" size="sm" isRequired selectedKeys={fTahunAjaran ? [fTahunAjaran] : []} onChange={(e) => setFTahunAjaran(e.target.value)}>
+                    <SelectItem key="2025/2026">2025/2026</SelectItem>
                     <SelectItem key="2024/2025">2024/2025</SelectItem>
-                    <SelectItem key="2023/2024">2023/2024</SelectItem>
                   </Select>
-                  <Select label="Semester" placeholder="Pilih" size="sm" isRequired>
+                  <Select label="Semester" placeholder="Pilih" size="sm" isRequired selectedKeys={fSemester ? [fSemester] : []} onChange={(e) => setFSemester(e.target.value)}>
                     <SelectItem key="ganjil">Ganjil</SelectItem>
                     <SelectItem key="genap">Genap</SelectItem>
                   </Select>
-                  <Select label="Wali Kelas" placeholder="Pilih guru" size="sm" className="col-span-2">
-                    <SelectItem key="1">Drs. Ahmad Fauzi, M.Pd</SelectItem>
-                    <SelectItem key="2">Sri Wahyuni, S.Pd</SelectItem>
-                    <SelectItem key="3">Budi Hartono, S.Kom</SelectItem>
+                  <Select label="Wali Kelas" placeholder="Pilih guru" size="sm" className="col-span-2" selectedKeys={fWaliKelasId ? [fWaliKelasId] : []} onChange={(e) => setFWaliKelasId(e.target.value)}>
+                    {guruList.map((g) => <SelectItem key={g.id}>{g.nama_guru}</SelectItem>)}
                   </Select>
                 </div>
               </ModalBody>
               <ModalFooter className="border-t border-gray-100">
-                <Button variant="bordered" className="border-gray-200" onPress={onClose}>Batal</Button>
-                <Button color="primary" className="bg-blue-600 font-medium" onPress={onClose}>Simpan Kelas</Button>
+                <Button variant="bordered" className="border-gray-200" onPress={() => { resetForm(); onClose(); }}>Batal</Button>
+                <Button color="primary" className="bg-blue-600 font-medium" isLoading={saving} onPress={() => handleSave(onClose)}>Simpan Kelas</Button>
               </ModalFooter>
             </>
           )}

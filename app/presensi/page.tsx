@@ -26,6 +26,8 @@ export default function PresensiPage() {
   const [cameraActive, setCameraActive] = useState(false);
   const [selectedTab, setSelectedTab] = useState("qr");
 
+  const { data: recentData } = usePresensiStats();
+
   const currentDate = new Date().toLocaleDateString('id-ID', { 
     weekday: 'long', 
     year: 'numeric', 
@@ -38,14 +40,7 @@ export default function PresensiPage() {
     minute: '2-digit'
   });
 
-  const recentScans = [
-    { id: 1, name: "Ahmad Rizki Maulana", nis: "2024001", kelas: "XII RPL 1", waktu: "08:15:24", status: "Hadir", foto: "https://i.pravatar.cc/150?u=student1" },
-    { id: 2, name: "Siti Nurhaliza", nis: "2024002", kelas: "XII RPL 1", waktu: "08:14:12", status: "Hadir", foto: "https://i.pravatar.cc/150?u=student2" },
-    { id: 3, name: "Budi Santoso", nis: "2024003", kelas: "XII RPL 2", waktu: "08:13:45", status: "Terlambat", foto: "https://i.pravatar.cc/150?u=student3" },
-    { id: 4, name: "Dewi Lestari", nis: "2024004", kelas: "XII RPL 1", waktu: "08:12:33", status: "Hadir", foto: "https://i.pravatar.cc/150?u=student4" },
-    { id: 5, name: "Eko Prasetyo", nis: "2024005", kelas: "XII RPL 2", waktu: "08:11:22", status: "Hadir", foto: "https://i.pravatar.cc/150?u=student5" },
-    { id: 6, name: "Fitri Handayani", nis: "2024006", kelas: "XI RPL 1", waktu: "08:10:15", status: "Hadir", foto: "https://i.pravatar.cc/150?u=student6" },
-  ];
+  const recentScans: { id: string; name: string; nis: string; kelas: string; waktu: string; status: string; foto: string }[] = [];
 
   const statusColor = (status: string) => {
     switch (status) {

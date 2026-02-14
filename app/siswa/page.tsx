@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@heroui/button";
 import { Input } from "@heroui/input";
 import { Avatar } from "@heroui/avatar";
@@ -30,9 +30,53 @@ export default function SiswaPage() {
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState("");
 
-  const { data: siswaData, isLoading } = useSiswa({ search, page, limit: 20 });
-  const { data: statsData, isLoading: statsLoading } = useSiswaStats();
+  // Form state
+  const [fNama, setFNama] = useState("");
+  const [fNisn, setFNisn] = useState("");
+  const [fNis, setFNis] = useState("");
+  const [fJk, setFJk] = useState("");
+  const [fKelasId, setFKelasId] = useState("");
+  const [fTempatLahir, setFTempatLahir] = useState("");
+  const [fTglLahir, setFTglLahir] = useState("");
+  const [fNamaAyah, setFNamaAyah] = useState("");
+  const [fWaAyah, setFWaAyah] = useState("");
+  const [fNamaIbu, setFNamaIbu] = useState("");
+  const [fWaIbu, setFWaIbu] = useState("");
+
+  // Kelas list for dropdown
+  const [kelasList, setKelasList] = useState<{id:string;nama_kelas:string}[]>([]);
+  useEffect(() => {
+    fetch("/api/kelas").then(r => r.json()).then(d => { if (d.data) setKelasList(d.data); }).catch(() => {});
+  }, []);
+
+  const { data: siswaData, isLoading, mutate } = useSiswa({ search, page, limit: 20 });
+  const { data: statsData, isLoading: statsLoading, mutate: mutateStats } = useSiswaStats();
+
+  const resetForm = () => { setFNama(""); setFNisn(""); setFNis(""); setFJk(""); setFKelasId(""); setFTempatLahir(""); setFTglLahir(""); setFNamaAyah(""); setFWaAyah(""); setFNamaIbu(""); setFWaIbu(""); setFormError(""); };
+
+  const handleSave = async (onClose: () => void) => {
+    if (!fNama.trim() || !fNisn.trim() || !fJk || !fKelasId) { setFormError("Nama, NISN, jenis kelamin, dan kelas wajib diisi"); return; }
+    setSaving(true); setFormError("");
+    try {
+      const res = await fetch("/api/siswa", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nama_lengkap: fNama, nisn: fNisn, nis: fNis || null, jenis_kelamin: fJk, kelas_id: fKelasId,
+          tempat_lahir: fTempatLahir || null, tanggal_lahir: fTglLahir || null,
+          nama_ayah: fNamaAyah || null, nomor_wa_ayah: fWaAyah || null,
+          nama_ibu: fNamaIbu || null, nomor_wa_ibu: fWaIbu || null,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) { setFormError(json.error || "Gagal menyimpan"); setSaving(false); return; }
+      mutate(); mutateStats(); resetForm(); onClose();
+    } catch { setFormError("Terjadi kesalahan"); }
+    setSaving(false);
+  };
 
   const students = siswaData?.data || [];
   const totalPages = Math.ceil((siswaData?.total || 0) / 20);
@@ -230,27 +274,24 @@ export default function SiswaPage() {
                 </div>
               </ModalHeader>
               <ModalBody className="py-6">
+                {formError && <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl px-4 py-2 mb-2">{formError}</div>}
                 <div className="space-y-6">
                   {/* Data Siswa */}
                   <div>
                     <p className="text-sm font-semibold text-gray-700 mb-3">Data Siswa</p>
                     <div className="grid grid-cols-2 gap-4">
-                      <Input label="Nama Lengkap" placeholder="Masukkan nama lengkap" size="sm" isRequired />
-                      <Input label="Nama Panggilan" placeholder="Nama panggilan" size="sm" />
-                      <Input label="NISN" placeholder="Nomor Induk Siswa Nasional" size="sm" isRequired />
-                      <Input label="NIS" placeholder="Nomor Induk Siswa" size="sm" />
-                      <Select label="Jenis Kelamin" placeholder="Pilih" size="sm" isRequired>
+                      <Input label="Nama Lengkap" placeholder="Masukkan nama lengkap" size="sm" isRequired value={fNama} onValueChange={setFNama} />
+                      <Input label="NISN" placeholder="Nomor Induk Siswa Nasional" size="sm" isRequired value={fNisn} onValueChange={setFNisn} />
+                      <Input label="NIS" placeholder="Nomor Induk Siswa" size="sm" value={fNis} onValueChange={setFNis} />
+                      <Select label="Jenis Kelamin" placeholder="Pilih" size="sm" isRequired selectedKeys={fJk ? [fJk] : []} onChange={(e) => setFJk(e.target.value)}>
                         <SelectItem key="L">Laki-laki</SelectItem>
                         <SelectItem key="P">Perempuan</SelectItem>
                       </Select>
-                      <Select label="Kelas" placeholder="Pilih kelas" size="sm" isRequired>
-                        <SelectItem key="12rpl1">XII RPL 1</SelectItem>
-                        <SelectItem key="12rpl2">XII RPL 2</SelectItem>
-                        <SelectItem key="11rpl1">XI RPL 1</SelectItem>
-                        <SelectItem key="11rpl2">XI RPL 2</SelectItem>
+                      <Select label="Kelas" placeholder="Pilih kelas" size="sm" isRequired selectedKeys={fKelasId ? [fKelasId] : []} onChange={(e) => setFKelasId(e.target.value)}>
+                        {kelasList.map((k) => <SelectItem key={k.id}>{k.nama_kelas}</SelectItem>)}
                       </Select>
-                      <Input label="Tempat Lahir" placeholder="Kota kelahiran" size="sm" />
-                      <Input label="Tanggal Lahir" type="date" size="sm" />
+                      <Input label="Tempat Lahir" placeholder="Kota kelahiran" size="sm" value={fTempatLahir} onValueChange={setFTempatLahir} />
+                      <Input label="Tanggal Lahir" type="date" size="sm" value={fTglLahir} onValueChange={setFTglLahir} />
                     </div>
                   </div>
 
@@ -260,26 +301,17 @@ export default function SiswaPage() {
                   <div>
                     <p className="text-sm font-semibold text-gray-700 mb-3">Data Orang Tua</p>
                     <div className="grid grid-cols-2 gap-4">
-                      <Input label="Nama Ayah" placeholder="Nama lengkap ayah" size="sm" />
-                      <Input label="No. WhatsApp Ayah" placeholder="6281xxxxxxxxx" size="sm" />
-                      <Input label="Nama Ibu" placeholder="Nama lengkap ibu" size="sm" />
-                      <Input label="No. WhatsApp Ibu" placeholder="6281xxxxxxxxx" size="sm" />
-                      <Select label="Preferensi Notifikasi" placeholder="Kirim notif ke" size="sm" className="col-span-2">
-                        <SelectItem key="ayah">Ayah</SelectItem>
-                        <SelectItem key="ibu">Ibu</SelectItem>
-                        <SelectItem key="keduanya">Keduanya</SelectItem>
-                      </Select>
+                      <Input label="Nama Ayah" placeholder="Nama lengkap ayah" size="sm" value={fNamaAyah} onValueChange={setFNamaAyah} />
+                      <Input label="No. WhatsApp Ayah" placeholder="6281xxxxxxxxx" size="sm" value={fWaAyah} onValueChange={setFWaAyah} />
+                      <Input label="Nama Ibu" placeholder="Nama lengkap ibu" size="sm" value={fNamaIbu} onValueChange={setFNamaIbu} />
+                      <Input label="No. WhatsApp Ibu" placeholder="6281xxxxxxxxx" size="sm" value={fWaIbu} onValueChange={setFWaIbu} />
                     </div>
                   </div>
                 </div>
               </ModalBody>
               <ModalFooter className="border-t border-gray-100">
-                <Button variant="bordered" className="border-gray-200" onPress={onClose}>
-                  Batal
-                </Button>
-                <Button color="primary" className="bg-blue-600 font-medium" onPress={onClose}>
-                  Simpan Siswa
-                </Button>
+                <Button variant="bordered" className="border-gray-200" onPress={() => { resetForm(); onClose(); }}>Batal</Button>
+                <Button color="primary" className="bg-blue-600 font-medium" isLoading={saving} onPress={() => handleSave(onClose)}>Simpan Siswa</Button>
               </ModalFooter>
             </>
           )}

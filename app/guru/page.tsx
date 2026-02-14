@@ -28,9 +28,37 @@ import {
 export default function GuruPage() {
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
   const [search, setSearch] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState("");
 
-  const { data: guruData, isLoading } = useGuru({ search });
-  const { data: statsData } = useGuruStats();
+  // Form state
+  const [fNama, setFNama] = useState("");
+  const [fNip, setFNip] = useState("");
+  const [fEmail, setFEmail] = useState("");
+  const [fTelp, setFTelp] = useState("");
+  const [fWa, setFWa] = useState("");
+
+  const { data: guruData, isLoading, mutate } = useGuru({ search });
+  const { data: statsData, mutate: mutateStats } = useGuruStats();
+
+  const resetForm = () => { setFNama(""); setFNip(""); setFEmail(""); setFTelp(""); setFWa(""); setFormError(""); };
+
+  const handleSave = async (onClose: () => void) => {
+    if (!fNama.trim()) { setFormError("Nama guru wajib diisi"); return; }
+    setSaving(true);
+    setFormError("");
+    try {
+      const res = await fetch("/api/guru", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nama_guru: fNama, nip: fNip || null, email: fEmail || null, nomor_telepon: fTelp || null, nomor_wa: fWa || null }),
+      });
+      const json = await res.json();
+      if (!res.ok) { setFormError(json.error || "Gagal menyimpan"); setSaving(false); return; }
+      mutate(); mutateStats(); resetForm(); onClose();
+    } catch { setFormError("Terjadi kesalahan"); }
+    setSaving(false);
+  };
 
   const teachers = guruData?.data || [];
 
@@ -186,23 +214,18 @@ export default function GuruPage() {
                 </div>
               </ModalHeader>
               <ModalBody className="py-6">
+                {formError && <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl px-4 py-2 mb-2">{formError}</div>}
                 <div className="grid grid-cols-2 gap-4">
-                  <Input label="Nama Lengkap" placeholder="Nama lengkap guru" size="sm" isRequired className="col-span-2" />
-                  <Input label="NIP" placeholder="Nomor Induk Pegawai" size="sm" />
-                  <Input label="Email" placeholder="email@sekolah.sch.id" type="email" size="sm" />
-                  <Input label="Nomor Telepon" placeholder="08xxxxxxxxxx" size="sm" />
-                  <Input label="Nomor WhatsApp" placeholder="6281xxxxxxxxx" size="sm" />
-                  <Select label="Wali Kelas" placeholder="Pilih kelas (opsional)" size="sm" className="col-span-2">
-                    <SelectItem key="12rpl1">XII RPL 1</SelectItem>
-                    <SelectItem key="12rpl2">XII RPL 2</SelectItem>
-                    <SelectItem key="11rpl1">XI RPL 1</SelectItem>
-                    <SelectItem key="11rpl2">XI RPL 2</SelectItem>
-                  </Select>
+                  <Input label="Nama Lengkap" placeholder="Nama lengkap guru" size="sm" isRequired className="col-span-2" value={fNama} onValueChange={setFNama} />
+                  <Input label="NIP" placeholder="Nomor Induk Pegawai" size="sm" value={fNip} onValueChange={setFNip} />
+                  <Input label="Email" placeholder="email@sekolah.sch.id" type="email" size="sm" value={fEmail} onValueChange={setFEmail} />
+                  <Input label="Nomor Telepon" placeholder="08xxxxxxxxxx" size="sm" value={fTelp} onValueChange={setFTelp} />
+                  <Input label="Nomor WhatsApp" placeholder="6281xxxxxxxxx" size="sm" value={fWa} onValueChange={setFWa} />
                 </div>
               </ModalBody>
               <ModalFooter className="border-t border-gray-100">
-                <Button variant="bordered" className="border-gray-200" onPress={onClose}>Batal</Button>
-                <Button color="primary" className="bg-blue-600 font-medium" onPress={onClose}>Simpan Guru</Button>
+                <Button variant="bordered" className="border-gray-200" onPress={() => { resetForm(); onClose(); }}>Batal</Button>
+                <Button color="primary" className="bg-blue-600 font-medium" isLoading={saving} onPress={() => handleSave(onClose)}>Simpan Guru</Button>
               </ModalFooter>
             </>
           )}
