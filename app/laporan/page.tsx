@@ -1,29 +1,31 @@
 "use client";
 
-import { Card, CardBody, CardHeader } from "@heroui/card";
 import { Button } from "@heroui/button";
-import { Avatar } from "@heroui/avatar";
-import { Chip } from "@heroui/chip";
 import { Select, SelectItem } from "@heroui/select";
+import { Input } from "@heroui/input";
+import { TopBar } from "@/components/top-bar";
+import { useLaporan } from "@/hooks/use-swr-hooks";
 import { 
-  Bell,
   Download,
   Printer,
-  ChartLine,
+  ChartLineUp,
   TrendUp,
   TrendDown,
-  Users,
   CheckCircle,
   XCircle,
-  Clock
+  Clock,
+  FilePdf,
+  FileXls,
+  CalendarBlank,
+  Funnel
 } from "phosphor-react";
 
 export default function LaporanPage() {
   const monthlyData = [
-    { bulan: "Januari", hadir: 95.2, izin: 3.1, alpha: 1.7 },
-    { bulan: "Februari", hadir: 94.8, izin: 3.5, alpha: 1.7 },
-    { bulan: "Maret", hadir: 96.1, izin: 2.8, alpha: 1.1 },
-    { bulan: "April", hadir: 93.5, izin: 4.2, alpha: 2.3 },
+    { bulan: "Jan", hadir: 95.2, izin: 3.1, alpha: 1.7 },
+    { bulan: "Feb", hadir: 94.8, izin: 3.5, alpha: 1.7 },
+    { bulan: "Mar", hadir: 96.1, izin: 2.8, alpha: 1.1 },
+    { bulan: "Apr", hadir: 93.5, izin: 4.2, alpha: 2.3 },
     { bulan: "Mei", hadir: 94.9, izin: 3.3, alpha: 1.8 },
   ];
 
@@ -37,205 +39,144 @@ export default function LaporanPage() {
   ];
 
   const stats = [
-    {
-      label: "Rata-rata Kehadiran",
-      value: "94.2%",
-      change: "+2.3%",
-      trend: "up",
-      icon: ChartLine,
-      color: "success"
-    },
-    {
-      label: "Total Hadir Bulan Ini",
-      value: "23,450",
-      change: "+5.1%",
-      trend: "up",
-      icon: CheckCircle,
-      color: "success"
-    },
-    {
-      label: "Total Izin/Sakit",
-      value: "892",
-      change: "-1.2%",
-      trend: "down",
-      icon: Clock,
-      color: "warning"
-    },
-    {
-      label: "Total Alpha",
-      value: "458",
-      change: "-3.5%",
-      trend: "down",
-      icon: XCircle,
-      color: "danger"
-    },
+    { label: "Rata-rata Kehadiran", value: "94.2%", change: "+2.3%", trend: "up", icon: ChartLineUp, iconBg: "bg-blue-50", iconColor: "text-blue-600" },
+    { label: "Total Hadir", value: "23,450", change: "+5.1%", trend: "up", icon: CheckCircle, iconBg: "bg-emerald-50", iconColor: "text-emerald-600" },
+    { label: "Total Izin/Sakit", value: "892", change: "-1.2%", trend: "down", icon: Clock, iconBg: "bg-amber-50", iconColor: "text-amber-600" },
+    { label: "Total Alpha", value: "458", change: "-3.5%", trend: "down", icon: XCircle, iconBg: "bg-red-50", iconColor: "text-red-500" },
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50/50">
-      {/* Top Bar */}
-      <div className="bg-white border-b border-divider/50 px-8 py-4 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Laporan Presensi</h1>
-          <p className="text-sm text-default-500">Analisis dan statistik kehadiran siswa</p>
-        </div>
-        <div className="flex items-center gap-4">
-          <Button color="primary" startContent={<Download size={20} />}>
-            Export PDF
-          </Button>
-          <Button variant="bordered" startContent={<Printer size={20} />}>
-            Print
-          </Button>
-          <Button isIconOnly variant="light" className="rounded-full relative">
-            <Bell size={24} />
-            <span className="absolute top-2 right-2 w-2 h-2 bg-danger rounded-full"></span>
-          </Button>
-          <div className="flex items-center gap-3 pl-4 border-l">
-            <Avatar
-              src="https://i.pravatar.cc/150?u=admin"
-              size="md"
-            />
-            <div>
-              <p className="text-sm font-semibold">Admin Sekolah</p>
-              <p className="text-xs text-default-400">Administrator</p>
-            </div>
-          </div>
-        </div>
-      </div>
+    <div className="min-h-screen">
+      <TopBar title="Laporan Presensi" subtitle="Analisis dan statistik kehadiran siswa" />
 
-      <div className="p-4 md:p-8 space-y-6">
-        {/* Filter Section */}
-        <Card className="border border-divider/50 shadow-sm">
-          <CardBody className="p-4 md:p-6">
-            <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
-              <Select label="Tahun Ajaran" placeholder="Pilih tahun" defaultSelectedKeys={["2024"]} className="max-w-xs">
+      <div className="p-6 space-y-6 max-w-[1400px] mx-auto">
+        {/* Filter & Export */}
+        <div className="bg-white rounded-2xl border border-gray-100 p-5">
+          <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
+            <div className="flex flex-wrap items-end gap-3">
+              <Select label="Tahun Ajaran" placeholder="Pilih" defaultSelectedKeys={["2024"]} size="sm" className="w-[140px]" classNames={{ trigger: "bg-gray-50 border-0 shadow-none h-9 min-h-9" }}>
                 <SelectItem key="2024">2024/2025</SelectItem>
                 <SelectItem key="2023">2023/2024</SelectItem>
-                <SelectItem key="2022">2022/2023</SelectItem>
               </Select>
-              <Select label="Semester" placeholder="Pilih semester" defaultSelectedKeys={["genap"]} className="max-w-xs">
+              <Select label="Semester" placeholder="Pilih" defaultSelectedKeys={["genap"]} size="sm" className="w-[120px]" classNames={{ trigger: "bg-gray-50 border-0 shadow-none h-9 min-h-9" }}>
                 <SelectItem key="genap">Genap</SelectItem>
                 <SelectItem key="ganjil">Ganjil</SelectItem>
               </Select>
-              <Select label="Kelas" placeholder="Semua Kelas" className="max-w-xs">
+              <Select label="Kelas" placeholder="Semua" size="sm" className="w-[140px]" classNames={{ trigger: "bg-gray-50 border-0 shadow-none h-9 min-h-9" }}>
                 <SelectItem key="all">Semua Kelas</SelectItem>
                 <SelectItem key="12rpl1">XII RPL 1</SelectItem>
                 <SelectItem key="12rpl2">XII RPL 2</SelectItem>
               </Select>
-              <Button color="primary">Terapkan Filter</Button>
+              <Input label="Dari Tanggal" type="date" size="sm" className="w-[160px]" classNames={{ inputWrapper: "bg-gray-50 border-0 shadow-none h-9" }} />
+              <Input label="Sampai Tanggal" type="date" size="sm" className="w-[160px]" classNames={{ inputWrapper: "bg-gray-50 border-0 shadow-none h-9" }} />
             </div>
-          </CardBody>
-        </Card>
+            <div className="flex gap-2">
+              <Button size="sm" variant="bordered" className="border-gray-200 text-gray-600" startContent={<FilePdf size={14} />}>
+                Export PDF
+              </Button>
+              <Button size="sm" variant="bordered" className="border-gray-200 text-gray-600" startContent={<FileXls size={14} />}>
+                Export Excel
+              </Button>
+              <Button size="sm" variant="bordered" className="border-gray-200 text-gray-600" startContent={<Printer size={14} />}>
+                Print
+              </Button>
+            </div>
+          </div>
+        </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Stats */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {stats.map((stat, index) => {
             const Icon = stat.icon;
-            const TrendIcon = stat.trend === "up" ? TrendUp : TrendDown;
-            
+            const isUp = stat.trend === "up";
             return (
-              <Card key={index} className="border border-divider/50 shadow-sm">
-                <CardBody className="p-5">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className={`w-12 h-12 rounded-xl bg-${stat.color}-50 flex items-center justify-center`}>
-                      <Icon size={24} weight="fill" className={`text-${stat.color}`} />
-                    </div>
-                    <Chip 
-                      size="sm" 
-                      variant="flat" 
-                      color={stat.trend === "up" ? "success" : "danger"}
-                      startContent={<TrendIcon size={14} weight="bold" />}
-                    >
-                      {stat.change}
-                    </Chip>
+              <div key={index} className="bg-white rounded-2xl border border-gray-100 p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <div className={`w-10 h-10 rounded-xl ${stat.iconBg} flex items-center justify-center`}>
+                    <Icon size={20} weight="fill" className={stat.iconColor} />
                   </div>
-                  <p className="text-sm text-default-500 mb-1">{stat.label}</p>
-                  <p className="text-3xl font-bold">{stat.value}</p>
-                </CardBody>
-              </Card>
+                  <div className={`flex items-center gap-1 text-xs font-medium ${isUp ? "text-emerald-600" : "text-red-500"}`}>
+                    {isUp ? <TrendUp size={14} weight="bold" /> : <TrendDown size={14} weight="bold" />}
+                    {stat.change}
+                  </div>
+                </div>
+                <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
+                <p className="text-xs text-gray-500 mt-1">{stat.label}</p>
+              </div>
             );
           })}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Monthly Trend */}
-          <Card className="border border-divider/50 shadow-sm">
-            <CardHeader>
-              <h3 className="text-lg font-bold">Tren Kehadiran Bulanan</h3>
-            </CardHeader>
-            <CardBody>
-              <div className="space-y-4">
-                {monthlyData.map((data, index) => (
-                  <div key={index} className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="font-medium">{data.bulan}</span>
-                      <span className="text-success font-semibold">{data.hadir}%</span>
+          <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-50">
+              <h3 className="font-semibold text-gray-900">Tren Kehadiran Bulanan</h3>
+              <p className="text-xs text-gray-400 mt-0.5">Semester Genap 2024/2025</p>
+            </div>
+            <div className="p-6 space-y-4">
+              {monthlyData.map((data, index) => (
+                <div key={index}>
+                  <div className="flex items-center justify-between text-sm mb-2">
+                    <span className="text-xs font-medium text-gray-500 w-8">{data.bulan}</span>
+                    <span className="text-xs font-semibold text-emerald-600">{data.hadir}%</span>
+                  </div>
+                  <div className="flex gap-0.5 h-6 rounded-lg overflow-hidden">
+                    <div className="bg-emerald-500 rounded-l-lg flex items-center justify-center" style={{ width: `${data.hadir}%` }}>
+                      <span className="text-[9px] text-white font-medium">Hadir</span>
                     </div>
-                    <div className="flex gap-1">
-                      <div 
-                        className="h-8 bg-success rounded-lg flex items-center justify-center text-xs text-white font-medium"
-                        style={{ width: `${data.hadir}%` }}
-                      >
-                        Hadir
-                      </div>
-                      <div 
-                        className="h-8 bg-warning rounded-lg flex items-center justify-center text-xs text-white font-medium"
-                        style={{ width: `${data.izin}%` }}
-                      >
-                        Izin
-                      </div>
-                      <div 
-                        className="h-8 bg-danger rounded-lg flex items-center justify-center text-xs text-white font-medium"
-                        style={{ width: `${data.alpha}%` }}
-                      >
-                        Alpha
-                      </div>
+                    <div className="bg-amber-400 flex items-center justify-center" style={{ width: `${data.izin * 3}%` }}>
+                      <span className="text-[9px] text-white font-medium">{data.izin}%</span>
+                    </div>
+                    <div className="bg-red-400 rounded-r-lg flex items-center justify-center" style={{ width: `${data.alpha * 3}%` }}>
+                      <span className="text-[9px] text-white font-medium">{data.alpha}%</span>
                     </div>
                   </div>
-                ))}
+                </div>
+              ))}
+              <div className="flex items-center gap-4 pt-2 text-xs text-gray-500">
+                <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm bg-emerald-500" /> Hadir</div>
+                <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm bg-amber-400" /> Izin/Sakit</div>
+                <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm bg-red-400" /> Alpha</div>
               </div>
-            </CardBody>
-          </Card>
+            </div>
+          </div>
 
           {/* Class Report */}
-          <Card className="border border-divider/50 shadow-sm">
-            <CardHeader>
-              <h3 className="text-lg font-bold">Laporan Per Kelas</h3>
-            </CardHeader>
-            <CardBody>
-              <div className="space-y-3">
-                {classReport.map((kelas, index) => (
-                  <Card key={index} className="border border-divider/50">
-                    <CardBody className="p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                          <Users size={20} className="text-primary" weight="fill" />
-                          <span className="font-bold">{kelas.kelas}</span>
-                        </div>
-                        <Chip size="sm" color="primary" variant="flat">
-                          {kelas.persentase}%
-                        </Chip>
-                      </div>
-                      <div className="flex justify-between text-sm mb-2">
-                        <span className="text-default-500">Total: {kelas.siswa}</span>
-                        <div className="flex gap-3">
-                          <span className="text-success">✓ {kelas.hadir}</span>
-                          <span className="text-warning">⏰ {kelas.izin}</span>
-                          <span className="text-danger">✗ {kelas.alpha}</span>
-                        </div>
-                      </div>
-                      <div className="w-full bg-default-200 rounded-full h-2">
-                        <div 
-                          className="h-2 rounded-full bg-success"
-                          style={{ width: `${kelas.persentase}%` }}
-                        />
-                      </div>
-                    </CardBody>
-                  </Card>
-                ))}
-              </div>
-            </CardBody>
-          </Card>
+          <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-50">
+              <h3 className="font-semibold text-gray-900">Laporan Per Kelas</h3>
+              <p className="text-xs text-gray-400 mt-0.5">Rata-rata kehadiran hari ini</p>
+            </div>
+            <div className="p-6 space-y-3">
+              {classReport.map((kelas, index) => (
+                <div key={index} className="p-3 rounded-xl border border-gray-100 hover:border-blue-200 transition-colors">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-semibold text-sm text-gray-900">{kelas.kelas}</span>
+                    <span className={`text-sm font-bold ${
+                      kelas.persentase >= 95 ? 'text-emerald-600' : 
+                      kelas.persentase >= 90 ? 'text-blue-600' : 'text-amber-600'
+                    }`}>{kelas.persentase}%</span>
+                  </div>
+                  <div className="w-full bg-gray-100 rounded-full h-1.5 mb-2">
+                    <div 
+                      className={`h-1.5 rounded-full ${
+                        kelas.persentase >= 95 ? 'bg-emerald-500' : 
+                        kelas.persentase >= 90 ? 'bg-blue-500' : 'bg-amber-500'
+                      }`}
+                      style={{ width: `${kelas.persentase}%` }}
+                    />
+                  </div>
+                  <div className="flex items-center gap-3 text-xs text-gray-400">
+                    <span>{kelas.siswa} siswa</span>
+                    <span className="text-emerald-600">{kelas.hadir} hadir</span>
+                    {kelas.izin > 0 && <span className="text-amber-600">{kelas.izin} izin</span>}
+                    {kelas.alpha > 0 && <span className="text-red-500">{kelas.alpha} alpha</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     </div>

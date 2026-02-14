@@ -6,22 +6,26 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql" // atau "mysql" sesuai kebutuhan
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 // ============================================
-// TENANT (Multi-tenant Support)
+// TENANT (Multi-tenant Support / School)
 // ============================================
 model Tenant {
-  id            String   @id @default(cuid())
-  nama_sekolah  String   @db.VarChar(100)
-  alamat        String?  @db.Text
-  nomor_telepon String?  @db.VarChar(20)
-  email         String?  @db.VarChar(100)
-  logo          String?  @db.VarChar(255)
-  is_active     Boolean  @default(true)
-  created_at    DateTime @default(now())
-  updated_at    DateTime @updatedAt
+  id              String   @id @default(cuid())
+  nama_sekolah    String   @db.VarChar(100)
+  slug            String   @unique @db.VarChar(50) // untuk subdomain: slug.kehadiran.com
+  custom_domain   String?  @unique @db.VarChar(255) // custom domain (one-time Rp 3jt)
+  alamat          String?  @db.Text
+  nomor_telepon   String?  @db.VarChar(20)
+  email           String?  @db.VarChar(100)
+  logo            String?  @db.VarChar(255)
+  qr_mode         String   @default("flexible") @db.VarChar(20) // 'gate_only', 'class_only', 'flexible'
+  is_active       Boolean  @default(true)
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
 
   // Relations
   users         User[]
@@ -68,12 +72,10 @@ model User {
   audit_logs     AuditLog[]
   invites_sent   Invite[]
 
-  @@unique([username]) // Unique global (superadmin tidak perlu tenant_id)
-  @@unique([email]) // Unique global
-  @@index([tenant_id])
-  @@index([username])
-  @@index([email])
-  @@index([role])
+  @@unique([username])
+  @@unique([email])
+  @@index([tenant_id, role, is_active]) // Dashboard: list users by tenant + role
+  @@index([tenant_id, is_active])
   @@map("users")
 }
 
@@ -99,8 +101,7 @@ model Guru {
   user   User?  @relation(fields: [user_id], references: [id], onDelete: SetNull)
 
   @@unique([tenant_id, nip])
-  @@index([tenant_id])
-  @@index([nip])
+  @@index([tenant_id, is_active]) // List active guru per tenant
   @@map("guru")
 }
 
@@ -116,6 +117,7 @@ model Kelas {
   wali_kelas_id String? // ID dari Guru
   tahun_ajaran  String   @db.VarChar(20) // '2024/2025'
   semester      String   @db.VarChar(10) // 'ganjil' atau 'genap'
+  qr_code       String?  @unique @db.VarChar(255) // QR code kelas (optional, jika qrMode = class_only)
   kapasitas     Int      @default(40)
   jumlah_siswa  Int      @default(0)
   is_active     Boolean  @default(true)
@@ -127,9 +129,8 @@ model Kelas {
   siswa  Siswa[]
 
   @@unique([tenant_id, nama_kelas, tahun_ajaran, semester])
-  @@index([tenant_id])
-  @@index([nama_kelas])
-  @@index([tahun_ajaran])
+  @@index([tenant_id, tahun_ajaran, semester, is_active]) // List kelas per tenant per semester
+  @@index([tenant_id, is_active])
   @@map("kelas")
 }
 
@@ -150,6 +151,7 @@ model Siswa {
   email          String?   @db.VarChar(100)
   nomor_telepon  String?   @db.VarChar(20)
   foto           String?   @db.VarChar(255)
+  qr_code        String?   @unique @db.VarChar(255) // QR code unik per siswa
   kelas_id       String
   tahun_masuk    Int
   status         String    @default("aktif") @db.VarChar(20) // 'aktif', 'lulus', 'pindah', 'keluar'
@@ -172,13 +174,10 @@ model Siswa {
 
   @@unique([tenant_id, nisn])
   @@unique([tenant_id, nis])
-  @@index([tenant_id])
-  @@index([nisn])
-  @@index([nis])
-  @@index([kelas_id])
-  @@index([status])
-  @@index([nomor_wa_ayah])
-  @@index([nomor_wa_ibu])
+  @@index([tenant_id, kelas_id, status]) // List siswa per kelas (most common query)
+  @@index([tenant_id, status]) // Count/filter siswa by status
+  @@index([tenant_id, nama_lengkap]) // Search siswa by name
+  @@index([kelas_id, status]) // Kelas detail page
   @@map("siswa")
 }
 
@@ -200,8 +199,7 @@ model Jadwal {
   presensi Presensi[]
 
   @@unique([tenant_id, hari])
-  @@index([tenant_id])
-  @@index([hari])
+  @@index([tenant_id, is_active]) // Get active schedule per tenant
   @@map("jadwal")
 }
 
@@ -235,12 +233,12 @@ model Presensi {
   notifikasi Notifikasi[]
 
   @@unique([tenant_id, siswa_id, tanggal])
-  @@index([tenant_id])
-  @@index([siswa_id])
-  @@index([jadwal_id])
-  @@index([tanggal])
-  @@index([status_masuk])
-  @@index([siswa_id, tanggal])
+  @@index([tenant_id, tanggal, status_masuk]) // Dashboard: daily stats by status (HOT PATH)
+  @@index([tenant_id, tanggal]) // Dashboard: all attendance for a date
+  @@index([tenant_id, siswa_id, tanggal]) // Student attendance history
+  @@index([siswa_id, tanggal]) // Student detail: attendance range
+  @@index([tenant_id, created_at]) // Recent attendance feed (live activity)
+  @@index([jadwal_id, tanggal]) // Schedule-based lookup
   @@map("presensi")
 }
 
@@ -266,10 +264,10 @@ model Notifikasi {
   siswa    Siswa     @relation(fields: [siswa_id], references: [id], onDelete: Cascade)
   presensi Presensi? @relation(fields: [presensi_id], references: [id], onDelete: SetNull)
 
-  @@index([tenant_id])
-  @@index([siswa_id])
-  @@index([status])
-  @@index([created_at])
+  @@index([tenant_id, created_at]) // Notification log per tenant
+  @@index([tenant_id, siswa_id]) // Notifications for a student
+  @@index([status, created_at]) // Retry queue: pending notifications (HOT PATH)
+  @@index([presensi_id]) // Lookup by presensi
   @@map("notifikasi")
 }
 
@@ -290,9 +288,7 @@ model Setting {
   tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
 
   @@unique([tenant_id, key])
-  @@index([tenant_id])
-  @@index([key])
-  @@index([category])
+  @@index([tenant_id, category]) // Settings by category per tenant
   @@map("settings")
 }
 
@@ -316,9 +312,7 @@ model Subscription {
   // Relations
   tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
 
-  @@index([tenant_id])
-  @@index([status])
-  @@index([plan])
+  @@index([status, plan]) // Admin: filter subscriptions
   @@map("subscriptions")
 }
 
@@ -339,10 +333,8 @@ model Invoice {
   // Relations
   tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
 
-  @@index([tenant_id])
-  @@index([status])
-  @@index([invoice_number])
-  @@index([issued_at])
+  @@index([tenant_id, status]) // Invoices per tenant by status
+  @@index([tenant_id, issued_at]) // Invoice history
   @@map("invoices")
 }
 
@@ -365,12 +357,9 @@ model AuditLog {
   tenant Tenant? @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
   user   User?   @relation(fields: [user_id], references: [id], onDelete: SetNull)
 
-  @@index([tenant_id])
-  @@index([user_id])
-  @@index([action])
-  @@index([entity_type])
-  @@index([created_at])
-  @@index([tenant_id, created_at])
+  @@index([tenant_id, created_at]) // Audit log timeline per tenant (HOT PATH)
+  @@index([tenant_id, entity_type, created_at]) // Filter by entity type
+  @@index([user_id, created_at]) // User activity log
   @@map("audit_logs")
 }
 
@@ -394,9 +383,7 @@ model ApiKey {
   // Relations
   tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
 
-  @@index([tenant_id])
-  @@index([key])
-  @@index([is_active])
+  @@index([tenant_id, is_active]) // Active API keys per tenant
   @@map("api_keys")
 }
 
@@ -419,7 +406,6 @@ model FeatureQuota {
   // Relations
   tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
 
-  @@index([tenant_id])
   @@map("feature_quotas")
 }
 
@@ -443,10 +429,7 @@ model Invite {
   inviter User   @relation(fields: [invited_by], references: [id], onDelete: Restrict)
 
   @@unique([tenant_id, email])
-  @@index([tenant_id])
-  @@index([email])
-  @@index([token])
-  @@index([expires_at])
+  @@index([tenant_id, expires_at]) // Active invites per tenant
   @@map("invites")
 }
 
@@ -459,7 +442,65 @@ model Permission {
   created_at  DateTime @default(now())
   updated_at  DateTime @updatedAt
 
-  @@index([resource])
-  @@index([action])
+  @@index([resource, action]) // Lookup permission by resource+action
   @@map("permissions")
+}
+
+// ============================================
+// SMTP CONFIGURATION (Global - Super Admin)
+// ============================================
+model SmtpConfig {
+  id          String   @id @default(cuid())
+  name        String   @db.VarChar(100) // e.g. 'Primary SMTP', 'Backup SMTP'
+  host        String   @db.VarChar(255)
+  port        Int      @default(587)
+  username    String   @db.VarChar(255)
+  password    String   @db.VarChar(255) // encrypted
+  from_email  String   @db.VarChar(255)
+  from_name   String   @default("Kehadiran") @db.VarChar(100)
+  encryption  String   @default("tls") @db.VarChar(10) // 'tls', 'ssl', 'none'
+  is_active   Boolean  @default(true)
+  is_default  Boolean  @default(false)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  @@map("smtp_configs")
+}
+
+// ============================================
+// EMAIL TEMPLATE (Global - Super Admin)
+// ============================================
+model EmailTemplate {
+  id          String   @id @default(cuid())
+  key         String   @unique @db.VarChar(50) // 'registration', 'reset_password', etc.
+  name        String   @db.VarChar(100)
+  description String?  @db.Text
+  subject     String   @db.VarChar(500)
+  body_html   String   @db.Text
+  variables   Json?    // Available variables e.g. ["nama", "link", "sekolah"]
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  @@map("email_templates")
+}
+
+// ============================================
+// EMAIL LOG (Track all sent emails)
+// ============================================
+model EmailLog {
+  id          String    @id @default(cuid())
+  tenant_id   String?
+  to_email    String    @db.VarChar(255)
+  subject     String    @db.VarChar(500)
+  template    String    @db.VarChar(100) // 'registration', 'reset_password', 'payment_success', 'invoice'
+  status      String    @default("pending") @db.VarChar(20) // 'pending', 'sent', 'failed'
+  error       String?   @db.Text
+  sent_at     DateTime?
+  created_at  DateTime  @default(now())
+
+  @@index([status, created_at])
+  @@index([template, created_at])
+  @@index([tenant_id, created_at])
+  @@map("email_logs")
 }

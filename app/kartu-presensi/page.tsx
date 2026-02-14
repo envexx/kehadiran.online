@@ -1,16 +1,16 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Card, CardBody, CardHeader } from "@heroui/card";
 import { Button } from "@heroui/button";
 import { Input } from "@heroui/input";
-import { Select, SelectItem } from "@heroui/select";
 import { Avatar } from "@heroui/avatar";
+import { TopBar } from "@/components/top-bar";
 import { 
-  Bell,
   Download,
   MagnifyingGlass,
-  QrCode
+  QrCode,
+  Printer,
+  Fingerprint
 } from "phosphor-react";
 import { QRCodeSVG } from "qrcode.react";
 import { toPng } from "html-to-image";
@@ -20,54 +20,28 @@ export default function KartuPresensiPage() {
   const [searchNIS, setSearchNIS] = useState("");
   const [selectedStudent, setSelectedStudent] = useState<any>(null);
 
-  // Sample data - nanti akan diganti dengan data dari database
   const students = [
-    {
-      id: 1,
-      nisn: "0012345678",
-      nama: "Ahmad Rizki Maulana",
-      kelas: "XII RPL 1",
-      foto: "https://i.pravatar.cc/150?u=student1",
-      berlaku: "30/6/2027"
-    },
-    {
-      id: 2,
-      nisn: "0012345679",
-      nama: "Siti Nurhaliza",
-      kelas: "XII RPL 1",
-      foto: "https://i.pravatar.cc/150?u=student2",
-      berlaku: "30/6/2027"
-    },
-    {
-      id: 3,
-      nisn: "0012345680",
-      nama: "Budi Santoso",
-      kelas: "XII RPL 2",
-      foto: "https://i.pravatar.cc/150?u=student3",
-      berlaku: "30/6/2027"
-    },
+    { id: 1, nisn: "0012345678", nama: "Ahmad Rizki Maulana", kelas: "XII RPL 1", foto: "https://i.pravatar.cc/150?u=student1", berlaku: "30/6/2027" },
+    { id: 2, nisn: "0012345679", nama: "Siti Nurhaliza", kelas: "XII RPL 1", foto: "https://i.pravatar.cc/150?u=student2", berlaku: "30/6/2027" },
+    { id: 3, nisn: "0012345680", nama: "Budi Santoso", kelas: "XII RPL 2", foto: "https://i.pravatar.cc/150?u=student3", berlaku: "30/6/2027" },
+    { id: 4, nisn: "0012345681", nama: "Dewi Lestari", kelas: "XII RPL 1", foto: "https://i.pravatar.cc/150?u=student4", berlaku: "30/6/2027" },
+    { id: 5, nisn: "0012345682", nama: "Eko Prasetyo", kelas: "XII RPL 2", foto: "https://i.pravatar.cc/150?u=student5", berlaku: "30/6/2027" },
   ];
 
   const handleSearch = () => {
     const student = students.find(s => s.nisn === searchNIS || s.nama.toLowerCase().includes(searchNIS.toLowerCase()));
-    if (student) {
-      setSelectedStudent(student);
-    }
+    if (student) setSelectedStudent(student);
   };
 
   const handleExportPNG = async () => {
     if (!cardRef.current) return;
-
     try {
-      // Export dengan kualitas HD menggunakan html-to-image
       const dataUrl = await toPng(cardRef.current, {
         quality: 1.0,
-        pixelRatio: 4, // 4x untuk HD quality (retina display)
-        backgroundColor: "#1e40af", // Blue background
+        pixelRatio: 4,
+        backgroundColor: "#1e40af",
         cacheBust: true,
       });
-
-      // Download image
       const link = document.createElement("a");
       link.href = dataUrl;
       link.download = `Kartu_Presensi_${selectedStudent?.nisn || 'student'}.png`;
@@ -76,202 +50,149 @@ export default function KartuPresensiPage() {
       document.body.removeChild(link);
     } catch (error) {
       console.error("Error exporting PNG:", error);
-      alert("Gagal mengekspor kartu. Silakan coba lagi.");
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50/50">
-      {/* Top Bar */}
-      <div className="bg-white border-b border-divider/50 px-4 md:px-8 py-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">Kartu Presensi</h1>
-          <p className="text-sm text-default-500">Cetak kartu presensi siswa dengan kualitas HD</p>
-        </div>
-        <div className="flex items-center gap-4 w-full md:w-auto">
-          <Button isIconOnly variant="light" className="rounded-full relative">
-            <Bell size={24} />
-            <span className="absolute top-2 right-2 w-2 h-2 bg-danger rounded-full"></span>
-          </Button>
-          <div className="flex items-center gap-3 pl-4 border-l">
-            <Avatar
-              src="https://i.pravatar.cc/150?u=admin"
-              size="md"
-            />
-            <div className="hidden md:block">
-              <p className="text-sm font-semibold">Admin Sekolah</p>
-              <p className="text-xs text-default-400">Administrator</p>
-            </div>
-          </div>
-        </div>
-      </div>
+    <div className="min-h-screen">
+      <TopBar title="Kartu QR Presensi" subtitle="Cetak kartu presensi siswa dengan kualitas HD" />
 
-      <div className="p-4 md:p-8">
+      <div className="p-6 max-w-[1400px] mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left - Search & Controls */}
-          <div className="lg:col-span-1 space-y-4">
-            <Card className="border border-divider/50 shadow-sm">
-              <CardHeader>
-                <h2 className="text-lg font-bold">Cari Siswa</h2>
-              </CardHeader>
-              <CardBody className="space-y-4">
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Cari NISN atau Nama..."
-                    value={searchNIS}
-                    onChange={(e) => setSearchNIS(e.target.value)}
-                    onKeyPress={(e) => e.key === "Enter" && handleSearch()}
-                    size="lg"
-                    startContent={<MagnifyingGlass size={20} />}
-                  />
-                </div>
-                <Button 
-                  color="primary" 
-                  className="w-full"
-                  onClick={handleSearch}
-                >
+          {/* Left - Search */}
+          <div className="space-y-4">
+            <div className="bg-white rounded-2xl border border-gray-100 p-5 space-y-4">
+              <h3 className="font-semibold text-gray-900 text-sm">Cari Siswa</h3>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="NISN atau Nama..."
+                  value={searchNIS}
+                  onChange={(e) => setSearchNIS(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                  size="sm"
+                  startContent={<MagnifyingGlass size={16} className="text-gray-400" />}
+                  classNames={{ inputWrapper: "bg-gray-50 border-0 shadow-none h-9" }}
+                />
+                <Button size="sm" color="primary" className="bg-blue-600" onPress={handleSearch}>
                   Cari
                 </Button>
+              </div>
 
-                {selectedStudent && (
-                  <div className="mt-4 p-4 bg-primary-50 rounded-lg space-y-2">
-                    <p className="text-sm font-semibold text-primary-700">Siswa Ditemukan:</p>
-                    <p className="font-bold">{selectedStudent.nama}</p>
-                    <p className="text-sm text-default-600">NISN: {selectedStudent.nisn}</p>
-                    <p className="text-sm text-default-600">Kelas: {selectedStudent.kelas}</p>
-                  </div>
-                )}
-
-                {selectedStudent && (
-                  <Button 
-                    color="success" 
-                    className="w-full"
-                    startContent={<Download size={20} />}
-                    onClick={handleExportPNG}
-                    size="lg"
-                  >
-                    Export PNG HD
-                  </Button>
-                )}
-              </CardBody>
-            </Card>
-
-            {/* Recent Students */}
-            <Card className="border border-divider/50 shadow-sm">
-              <CardHeader>
-                <h3 className="font-bold">Siswa Terbaru</h3>
-              </CardHeader>
-              <CardBody>
-                <div className="space-y-2">
-                  {students.map((student) => (
-                    <div
-                      key={student.id}
-                      role="button"
-                      tabIndex={0}
-                      className="flex items-center gap-3 p-2 hover:bg-default-100 rounded-lg cursor-pointer transition-colors"
-                      onClick={() => setSelectedStudent(student)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          setSelectedStudent(student);
-                        }
-                      }}
-                    >
-                      <Avatar src={student.foto} size="sm" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{student.nama}</p>
-                        <p className="text-xs text-default-400">{student.nisn}</p>
+              {selectedStudent && (
+                <>
+                  <div className="p-3 bg-blue-50 rounded-xl">
+                    <div className="flex items-center gap-3">
+                      <Avatar src={selectedStudent.foto} size="sm" className="w-10 h-10" />
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900">{selectedStudent.nama}</p>
+                        <p className="text-xs text-gray-500">NISN: {selectedStudent.nisn} &middot; {selectedStudent.kelas}</p>
                       </div>
                     </div>
-                  ))}
-                </div>
-              </CardBody>
-            </Card>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      color="primary"
+                      className="flex-1 bg-blue-600 font-medium"
+                      startContent={<Download size={14} />}
+                      onPress={handleExportPNG}
+                    >
+                      Export PNG HD
+                    </Button>
+                    <Button size="sm" variant="bordered" className="border-gray-200" startContent={<Printer size={14} />}>
+                      Print
+                    </Button>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Student List */}
+            <div className="bg-white rounded-2xl border border-gray-100 p-5">
+              <h3 className="font-semibold text-gray-900 text-sm mb-3">Daftar Siswa</h3>
+              <div className="space-y-1">
+                {students.map((student) => (
+                  <button
+                    key={student.id}
+                    className={`w-full flex items-center gap-3 p-2.5 rounded-xl text-left transition-all ${
+                      selectedStudent?.id === student.id 
+                        ? "bg-blue-50 border border-blue-200" 
+                        : "hover:bg-gray-50 border border-transparent"
+                    }`}
+                    onClick={() => setSelectedStudent(student)}
+                  >
+                    <Avatar src={student.foto} size="sm" className="w-8 h-8" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">{student.nama}</p>
+                      <p className="text-xs text-gray-400">{student.nisn} &middot; {student.kelas}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
 
           {/* Right - Card Preview */}
           <div className="lg:col-span-2">
             {selectedStudent ? (
               <div className="flex flex-col items-center">
-                {/* Kartu Presensi - Design seperti kartu pelajar */}
                 <div
                   ref={cardRef}
-                  className="w-full max-w-2xl aspect-[85.6/53.98] bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl shadow-2xl p-8 relative overflow-hidden"
+                  className="w-full max-w-2xl aspect-[85.6/53.98] rounded-2xl shadow-2xl p-8 relative overflow-hidden"
                   style={{
                     background: "linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%)",
                     minHeight: "400px"
                   }}
                 >
-                  {/* Background Pattern (Optional) */}
                   <div className="absolute inset-0 opacity-10">
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-white rounded-full -mr-32 -mt-32"></div>
-                    <div className="absolute bottom-0 left-0 w-48 h-48 bg-white rounded-full -ml-24 -mb-24"></div>
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-white rounded-full -mr-32 -mt-32" />
+                    <div className="absolute bottom-0 left-0 w-48 h-48 bg-white rounded-full -ml-24 -mb-24" />
                   </div>
 
                   <div className="relative z-10 h-full flex flex-col">
-                    {/* Header */}
                     <div className="flex items-start justify-between mb-6">
-                      {/* Logo Tut Wuri Handayani */}
                       <div className="flex items-center gap-4">
-                        <div className="w-20 h-20 bg-white rounded-xl flex items-center justify-center shadow-lg">
-                          <div className="text-center">
-                            <div className="w-12 h-12 mx-auto mb-1 flex items-center justify-center">
-                              <svg viewBox="0 0 100 100" className="w-full h-full">
-                                {/* Simplified Tut Wuri Handayani Logo */}
-                                <circle cx="50" cy="50" r="45" fill="#1e40af" stroke="white" strokeWidth="2"/>
-                                <path d="M50 20 L50 50 M50 50 L35 65 M50 50 L65 65" stroke="white" strokeWidth="4" fill="none" strokeLinecap="round"/>
-                                <circle cx="50" cy="30" r="5" fill="#f97316"/>
-                              </svg>
-                            </div>
-                            <p className="text-[6px] text-blue-600 font-bold">TUT WURI</p>
-                            <p className="text-[6px] text-blue-600 font-bold">HANDAYANI</p>
-                          </div>
+                        <div className="w-16 h-16 bg-white rounded-xl flex items-center justify-center shadow-lg">
+                          <Fingerprint size={32} weight="fill" className="text-blue-700" />
                         </div>
                       </div>
-
-                      {/* School Name */}
                       <div className="text-right">
                         <h2 className="text-2xl md:text-3xl font-bold text-white mb-1">
-                          SMP ISLAM TERPADU
+                          KEHADIRAN
                         </h2>
-                        <p className="text-lg md:text-xl text-white/90 font-semibold">
-                          Kartu Presensi
+                        <p className="text-lg text-white/80 font-medium">
+                          Kartu Presensi Digital
                         </p>
                       </div>
                     </div>
 
-                    {/* Content */}
                     <div className="flex-1 grid grid-cols-2 gap-6 items-center">
-                      {/* Left - Student Info */}
                       <div className="space-y-4">
                         <div>
-                          <p className="text-white/80 text-sm mb-1">NISN</p>
+                          <p className="text-white/60 text-xs uppercase tracking-wider mb-1">NISN</p>
                           <p className="text-white text-2xl font-bold">{selectedStudent.nisn}</p>
                         </div>
-
                         <div>
-                          <p className="text-white/80 text-sm mb-1">Nama</p>
+                          <p className="text-white/60 text-xs uppercase tracking-wider mb-1">Nama Lengkap</p>
                           <p className="text-white text-xl font-bold">{selectedStudent.nama}</p>
                         </div>
-
                         <div className="flex gap-6">
                           <div>
-                            <p className="text-white/80 text-sm mb-1">Kelas</p>
-                            <p className="text-white text-xl font-bold">{selectedStudent.kelas}</p>
+                            <p className="text-white/60 text-xs uppercase tracking-wider mb-1">Kelas</p>
+                            <p className="text-white text-lg font-bold">{selectedStudent.kelas}</p>
                           </div>
                           <div>
-                            <p className="text-white/80 text-sm mb-1">Berlaku s/d</p>
-                            <p className="text-white text-xl font-bold">{selectedStudent.berlaku}</p>
+                            <p className="text-white/60 text-xs uppercase tracking-wider mb-1">Berlaku s/d</p>
+                            <p className="text-white text-lg font-bold">{selectedStudent.berlaku}</p>
                           </div>
                         </div>
                       </div>
 
-                      {/* Right - QR Code */}
                       <div className="flex justify-end">
                         <div className="bg-white p-4 rounded-xl shadow-2xl">
                           <QRCodeSVG
                             value={`PRESENSI:${selectedStudent.nisn}:${selectedStudent.nama}`}
-                            size={200}
+                            size={180}
                             level="H"
                             includeMargin={true}
                           />
@@ -281,22 +202,20 @@ export default function KartuPresensiPage() {
                   </div>
                 </div>
 
-                <p className="mt-4 text-sm text-default-500 text-center">
-                  Klik tombol &quot;Export PNG HD&quot; untuk mengunduh kartu dengan kualitas tinggi
+                <p className="mt-4 text-xs text-gray-400 text-center">
+                  Klik &quot;Export PNG HD&quot; untuk mengunduh kartu dengan kualitas tinggi (4x retina)
                 </p>
               </div>
             ) : (
-              <Card className="border border-divider/50 shadow-sm">
-                <CardBody className="flex flex-col items-center justify-center py-20">
-                  <QrCode size={80} className="text-default-300 mb-4" />
-                  <p className="text-lg font-semibold text-default-500 mb-2">
-                    Belum ada siswa dipilih
-                  </p>
-                  <p className="text-sm text-default-400 text-center">
-                    Cari siswa menggunakan NISN atau nama untuk melihat kartu presensi
-                  </p>
-                </CardBody>
-              </Card>
+              <div className="bg-white rounded-2xl border border-gray-100 flex flex-col items-center justify-center py-24">
+                <div className="w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center mb-4">
+                  <QrCode size={32} className="text-gray-300" />
+                </div>
+                <p className="font-semibold text-gray-500 mb-1">Belum ada siswa dipilih</p>
+                <p className="text-sm text-gray-400 text-center max-w-sm">
+                  Cari atau pilih siswa dari daftar untuk melihat preview kartu presensi
+                </p>
+              </div>
             )}
           </div>
         </div>

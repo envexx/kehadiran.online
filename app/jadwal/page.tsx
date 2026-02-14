@@ -1,275 +1,173 @@
 "use client";
 
-import { Card, CardBody, CardHeader } from "@heroui/card";
 import { Button } from "@heroui/button";
-import { Avatar } from "@heroui/avatar";
-import { Chip } from "@heroui/chip";
+import { Select, SelectItem } from "@heroui/select";
+import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, useDisclosure } from "@heroui/modal";
+import { Input } from "@heroui/input";
+import { TopBar } from "@/components/top-bar";
+import { useJadwal } from "@/hooks/use-swr-hooks";
 import { 
-  Bell,
   Plus,
   Clock,
-  MapPin,
-  User,
-  CheckCircle,
-  XCircle,
-  ClockClockwise,
-  Users
+  PencilSimple,
+  Trash
 } from "phosphor-react";
 
 export default function JadwalPage() {
-  const schedule = {
-    senin: [
-      { id: 1, waktu: "07:30 - 09:00", mapel: "Matematika", kelas: "XII RPL 1", guru: "Pak Budi", ruang: "R.301" },
-      { id: 2, waktu: "09:15 - 10:45", mapel: "Bahasa Indonesia", kelas: "XII RPL 1", guru: "Bu Ani", ruang: "R.301" },
-      { id: 3, waktu: "11:00 - 12:30", mapel: "Pemrograman Web", kelas: "XII RPL 1", guru: "Pak Dedi", ruang: "Lab 1" },
-      { id: 4, waktu: "13:00 - 14:30", mapel: "Basis Data", kelas: "XII RPL 1", guru: "Bu Sari", ruang: "Lab 2" },
-    ],
-    selasa: [
-      { id: 5, waktu: "07:30 - 09:00", mapel: "Bahasa Inggris", kelas: "XII RPL 1", guru: "Bu Rina", ruang: "R.301" },
-      { id: 6, waktu: "09:15 - 10:45", mapel: "Pemrograman Mobile", kelas: "XII RPL 1", guru: "Pak Eko", ruang: "Lab 1" },
-      { id: 7, waktu: "11:00 - 12:30", mapel: "Jaringan Komputer", kelas: "XII RPL 1", guru: "Pak Ahmad", ruang: "Lab 2" },
-    ],
-    rabu: [
-      { id: 8, waktu: "07:30 - 09:00", mapel: "Matematika", kelas: "XII RPL 1", guru: "Pak Budi", ruang: "R.301" },
-      { id: 9, waktu: "09:15 - 10:45", mapel: "PKK", kelas: "XII RPL 1", guru: "Bu Dewi", ruang: "R.301" },
-      { id: 10, waktu: "11:00 - 12:30", mapel: "Pemrograman Web", kelas: "XII RPL 1", guru: "Pak Dedi", ruang: "Lab 1" },
-    ],
-    kamis: [
-      { id: 11, waktu: "07:30 - 09:00", mapel: "Pendidikan Agama", kelas: "XII RPL 1", guru: "Pak Hadi", ruang: "R.301" },
-      { id: 12, waktu: "09:15 - 10:45", mapel: "Pemrograman Mobile", kelas: "XII RPL 1", guru: "Pak Eko", ruang: "Lab 1" },
-      { id: 13, waktu: "11:00 - 12:30", mapel: "Basis Data", kelas: "XII RPL 1", guru: "Bu Sari", ruang: "Lab 2" },
-    ],
-    jumat: [
-      { id: 14, waktu: "07:30 - 09:00", mapel: "Olahraga", kelas: "XII RPL 1", guru: "Pak Joko", ruang: "Lapangan" },
-      { id: 15, waktu: "09:15 - 10:45", mapel: "Bahasa Inggris", kelas: "XII RPL 1", guru: "Bu Rina", ruang: "R.301" },
-    ],
-  };
+  const { isOpen, onOpen, onOpenChange } = useDisclosure();
 
-  const days = [
-    { key: "senin", label: "Senin", data: schedule.senin },
-    { key: "selasa", label: "Selasa", data: schedule.selasa },
-    { key: "rabu", label: "Rabu", data: schedule.rabu },
-    { key: "kamis", label: "Kamis", data: schedule.kamis },
-    { key: "jumat", label: "Jumat", data: schedule.jumat },
+  const jadwalHarian = [
+    { hari: "Senin", jam_masuk: "07:00", jam_pulang: "15:00", active: true },
+    { hari: "Selasa", jam_masuk: "07:00", jam_pulang: "15:00", active: true },
+    { hari: "Rabu", jam_masuk: "07:00", jam_pulang: "15:00", active: true },
+    { hari: "Kamis", jam_masuk: "07:00", jam_pulang: "15:00", active: true },
+    { hari: "Jumat", jam_masuk: "07:00", jam_pulang: "11:30", active: true },
+    { hari: "Sabtu", jam_masuk: "07:00", jam_pulang: "12:00", active: false },
+    { hari: "Minggu", jam_masuk: "-", jam_pulang: "-", active: false },
   ];
 
+  const dayColors: Record<string, string> = {
+    Senin: "bg-blue-500",
+    Selasa: "bg-emerald-500",
+    Rabu: "bg-amber-500",
+    Kamis: "bg-purple-500",
+    Jumat: "bg-rose-500",
+    Sabtu: "bg-gray-400",
+    Minggu: "bg-gray-300",
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50/50">
-      {/* Top Bar */}
-      <div className="bg-white border-b border-divider/50 px-8 py-4 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Jadwal Pelajaran</h1>
-          <p className="text-sm text-default-500">Jadwal kelas XII RPL 1 - Semester Genap 2024/2025</p>
+    <div className="min-h-screen">
+      <TopBar title="Jadwal Presensi" subtitle="Atur jam masuk dan pulang per hari" />
+
+      <div className="p-6 space-y-6 max-w-[1400px] mx-auto">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <Select
+              placeholder="Tahun Ajaran"
+              size="sm"
+              defaultSelectedKeys={["2024"]}
+              className="w-[160px]"
+              classNames={{ trigger: "bg-white border border-gray-200 shadow-none h-9 min-h-9" }}
+            >
+              <SelectItem key="2024">2024/2025</SelectItem>
+              <SelectItem key="2023">2023/2024</SelectItem>
+            </Select>
+            <Select
+              placeholder="Semester"
+              size="sm"
+              defaultSelectedKeys={["genap"]}
+              className="w-[120px]"
+              classNames={{ trigger: "bg-white border border-gray-200 shadow-none h-9 min-h-9" }}
+            >
+              <SelectItem key="ganjil">Ganjil</SelectItem>
+              <SelectItem key="genap">Genap</SelectItem>
+            </Select>
+          </div>
+          <Button size="sm" color="primary" className="bg-blue-600 font-medium" startContent={<Plus size={14} weight="bold" />} onPress={onOpen}>
+            Edit Jadwal
+          </Button>
         </div>
-        <div className="flex items-center gap-4">
-          <Button color="primary" startContent={<Plus size={20} />}>
-            Tambah Jadwal
-          </Button>
-          <Button isIconOnly variant="light" className="rounded-full relative">
-            <Bell size={24} />
-            <span className="absolute top-2 right-2 w-2 h-2 bg-danger rounded-full"></span>
-          </Button>
-          <div className="flex items-center gap-3 pl-4 border-l">
-            <Avatar
-              src="https://i.pravatar.cc/150?u=admin"
-              size="md"
-            />
-            <div>
-              <p className="text-sm font-semibold">Admin Sekolah</p>
-              <p className="text-xs text-default-400">Administrator</p>
+
+        {/* Schedule Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {jadwalHarian.map((jadwal) => (
+            <div
+              key={jadwal.hari}
+              className={`bg-white rounded-2xl border border-gray-100 overflow-hidden transition-all ${
+                jadwal.active ? "hover:border-blue-200 hover:shadow-sm" : "opacity-60"
+              }`}
+            >
+              <div className={`h-1.5 ${dayColors[jadwal.hari]}`} />
+              <div className="p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-bold text-gray-900 text-lg">{jadwal.hari}</h3>
+                  <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
+                    jadwal.active ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-500"
+                  }`}>
+                    {jadwal.active ? "Aktif" : "Libur"}
+                  </span>
+                </div>
+
+                {jadwal.active ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-xl">
+                      <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center">
+                        <Clock size={16} className="text-blue-600" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-blue-500 font-medium">Jam Masuk</p>
+                        <p className="text-lg font-bold text-blue-700">{jadwal.jam_masuk}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 p-3 bg-amber-50 rounded-xl">
+                      <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center">
+                        <Clock size={16} className="text-amber-600" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-amber-500 font-medium">Jam Pulang</p>
+                        <p className="text-lg font-bold text-amber-700">{jadwal.jam_pulang}</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-1 pt-1">
+                      <Button size="sm" variant="light" className="flex-1 text-xs text-gray-500 hover:text-blue-600" startContent={<PencilSimple size={12} />}>
+                        Edit
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="py-6 text-center">
+                    <p className="text-sm text-gray-400">Tidak ada jadwal</p>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          ))}
+        </div>
+
+        {/* Info */}
+        <div className="bg-blue-50 rounded-2xl p-5">
+          <h4 className="font-semibold text-blue-900 text-sm mb-2">Catatan Jadwal Presensi</h4>
+          <ul className="space-y-1.5 text-xs text-blue-700">
+            <li>Siswa yang scan QR sebelum jam masuk akan otomatis tercatat sebagai <strong>Hadir</strong></li>
+            <li>Siswa yang scan QR setelah jam masuk akan otomatis tercatat sebagai <strong>Terlambat</strong></li>
+            <li>Siswa yang tidak scan QR sampai batas waktu akan otomatis tercatat sebagai <strong>Alpha</strong></li>
+            <li>Batas waktu alpha otomatis: <strong>2 jam setelah jam masuk</strong></li>
+          </ul>
         </div>
       </div>
 
-      <div className="p-4 md:p-8 space-y-6">
-        {/* Jadwal Pelajaran */}
-        <div>
-          <h2 className="text-xl font-bold mb-4">Jadwal Pelajaran</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-            {days.map((day) => (
-              <Card key={day.key} className="border border-divider/50 shadow-sm">
-                <CardHeader className="bg-primary-50">
-                  <h3 className="font-bold text-primary">{day.label}</h3>
-                </CardHeader>
-                <CardBody className="p-3 space-y-3">
-                  {day.data.map((item) => (
-                    <Card key={item.id} className="border border-divider/50 hover:shadow-md transition-shadow">
-                      <CardBody className="p-3 space-y-2">
-                        <div className="flex items-start justify-between">
-                          <h4 className="font-semibold text-sm">{item.mapel}</h4>
-                          <Chip size="sm" variant="flat" color="primary">
-                            {item.kelas}
-                          </Chip>
-                        </div>
-                        
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2 text-xs text-default-500">
-                            <Clock size={14} />
-                            <span>{item.waktu}</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-xs text-default-500">
-                            <User size={14} />
-                            <span>{item.guru}</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-xs text-default-500">
-                            <MapPin size={14} />
-                            <span>{item.ruang}</span>
-                          </div>
-                        </div>
-                      </CardBody>
-                    </Card>
+      {/* Edit Schedule Modal */}
+      <Modal isOpen={isOpen} onOpenChange={onOpenChange} size="xl">
+        <ModalContent>
+          {(onClose) => (
+            <>
+              <ModalHeader className="border-b border-gray-100">
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">Edit Jadwal Presensi</h3>
+                  <p className="text-sm text-gray-500 font-normal">Atur jam masuk dan pulang per hari</p>
+                </div>
+              </ModalHeader>
+              <ModalBody className="py-6">
+                <div className="space-y-4">
+                  {jadwalHarian.filter(j => j.active).map((jadwal) => (
+                    <div key={jadwal.hari} className="flex items-center gap-4">
+                      <span className="text-sm font-medium text-gray-700 w-16">{jadwal.hari}</span>
+                      <Input label="Jam Masuk" type="time" defaultValue={jadwal.jam_masuk} size="sm" className="flex-1" />
+                      <Input label="Jam Pulang" type="time" defaultValue={jadwal.jam_pulang} size="sm" className="flex-1" />
+                    </div>
                   ))}
-                </CardBody>
-              </Card>
-            ))}
-          </div>
-        </div>
-
-        {/* Kartu Presensi */}
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold">Kartu Presensi</h2>
-            <Button size="sm" variant="flat" startContent={<Plus size={18} />}>
-              Tambah Kartu
-            </Button>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {[
-              {
-                id: 1,
-                mapel: "Matematika",
-                kelas: "XII RPL 1",
-                guru: "Pak Budi",
-                tanggal: "15 Jan 2025",
-                totalSiswa: 36,
-                hadir: 34,
-                izin: 1,
-                sakit: 0,
-                alpha: 1,
-                persentase: 94.4
-              },
-              {
-                id: 2,
-                mapel: "Pemrograman Web",
-                kelas: "XII RPL 1",
-                guru: "Pak Dedi",
-                tanggal: "15 Jan 2025",
-                totalSiswa: 36,
-                hadir: 35,
-                izin: 0,
-                sakit: 1,
-                alpha: 0,
-                persentase: 97.2
-              },
-              {
-                id: 3,
-                mapel: "Basis Data",
-                kelas: "XII RPL 1",
-                guru: "Bu Sari",
-                tanggal: "15 Jan 2025",
-                totalSiswa: 36,
-                hadir: 33,
-                izin: 2,
-                sakit: 0,
-                alpha: 1,
-                persentase: 91.7
-              },
-              {
-                id: 4,
-                mapel: "Bahasa Indonesia",
-                kelas: "XII RPL 1",
-                guru: "Bu Ani",
-                tanggal: "15 Jan 2025",
-                totalSiswa: 36,
-                hadir: 36,
-                izin: 0,
-                sakit: 0,
-                alpha: 0,
-                persentase: 100
-              },
-            ].map((kartu) => (
-              <Card key={kartu.id} className="border border-divider/50 shadow-sm hover:shadow-md transition-shadow">
-                <CardHeader className="bg-gradient-to-r from-primary-500 to-primary-600 text-white">
-                  <div className="flex items-center justify-between w-full">
-                    <div>
-                      <h3 className="font-bold text-lg">{kartu.mapel}</h3>
-                      <p className="text-xs text-white/80">{kartu.kelas}</p>
-                    </div>
-                    <Chip size="sm" className="bg-white/20 text-white border-0">
-                      {kartu.persentase}%
-                    </Chip>
-                  </div>
-                </CardHeader>
-                <CardBody className="p-4 space-y-4">
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-2 text-default-500">
-                        <User size={16} />
-                        <span>{kartu.guru}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-default-500">
-                        <Clock size={16} />
-                        <span>{kartu.tanggal}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Users size={16} className="text-default-400" />
-                        <span className="text-sm text-default-500">Total Siswa</span>
-                      </div>
-                      <span className="font-semibold">{kartu.totalSiswa}</span>
-                    </div>
-                    
-                    <div className="flex items-center justify-between p-2 bg-success-50 rounded-lg">
-                      <div className="flex items-center gap-2">
-                        <CheckCircle size={16} className="text-success" weight="fill" />
-                        <span className="text-sm text-success-700">Hadir</span>
-                      </div>
-                      <span className="font-bold text-success-700">{kartu.hadir}</span>
-                    </div>
-
-                    {(kartu.izin > 0 || kartu.sakit > 0) && (
-                      <div className="flex items-center justify-between p-2 bg-warning-50 rounded-lg">
-                        <div className="flex items-center gap-2">
-                          <ClockClockwise size={16} className="text-warning" weight="fill" />
-                          <span className="text-sm text-warning-700">Izin/Sakit</span>
-                        </div>
-                        <span className="font-bold text-warning-700">{kartu.izin + kartu.sakit}</span>
-                      </div>
-                    )}
-
-                    {kartu.alpha > 0 && (
-                      <div className="flex items-center justify-between p-2 bg-danger-50 rounded-lg">
-                        <div className="flex items-center gap-2">
-                          <XCircle size={16} className="text-danger" weight="fill" />
-                          <span className="text-sm text-danger-700">Alpha</span>
-                        </div>
-                        <span className="font-bold text-danger-700">{kartu.alpha}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="pt-2 border-t border-divider">
-                    <div className="w-full bg-default-200 rounded-full h-2">
-                      <div 
-                        className={`h-2 rounded-full ${
-                          kartu.persentase >= 95 ? 'bg-success' :
-                          kartu.persentase >= 90 ? 'bg-warning' : 'bg-danger'
-                        }`}
-                        style={{ width: `${kartu.persentase}%` }}
-                      />
-                    </div>
-                  </div>
-                </CardBody>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </div>
+                </div>
+              </ModalBody>
+              <ModalFooter className="border-t border-gray-100">
+                <Button variant="bordered" className="border-gray-200" onPress={onClose}>Batal</Button>
+                <Button color="primary" className="bg-blue-600 font-medium" onPress={onClose}>Simpan Jadwal</Button>
+              </ModalFooter>
+            </>
+          )}
+        </ModalContent>
+      </Modal>
     </div>
   );
 }

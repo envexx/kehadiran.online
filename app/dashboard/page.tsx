@@ -1,16 +1,14 @@
 "use client";
 
-import { Card, CardBody, CardHeader, CardFooter } from "@heroui/card";
 import { Button } from "@heroui/button";
-import { Input } from "@heroui/input";
 import { Avatar } from "@heroui/avatar";
-import { Progress } from "@heroui/progress";
 import { Chip } from "@heroui/chip";
+import { Skeleton } from "@heroui/skeleton";
 import { Table, TableHeader, TableColumn, TableBody, TableRow, TableCell } from "@heroui/table";
+import Link from "next/link";
+import { TopBar } from "@/components/top-bar";
+import { useDashboardStats, useRecentAttendance } from "@/hooks/use-swr-hooks";
 import { 
-  MagnifyingGlass, 
-  Bell, 
-  DotsThree,
   TrendUp,
   TrendDown,
   Users,
@@ -19,117 +17,66 @@ import {
   Clock,
   Calendar,
   Download,
-  Funnel,
   Plus,
-  ClipboardText
+  QrCode,
+  ArrowRight,
+  ChartLineUp,
+  Student
 } from "phosphor-react";
 
 export default function DashboardPage() {
+  const { data: dashData, isLoading: statsLoading } = useDashboardStats();
+  const { data: recentData, isLoading: recentLoading } = useRecentAttendance(undefined, 5);
+
   const stats = [
     {
       id: 1,
       title: "Total Siswa",
-      value: "1,248",
+      value: dashData ? dashData.totalSiswa.toLocaleString() : "—",
       change: "+12%",
       trend: "up",
-      icon: Users,
-      color: "bg-blue-500",
-      bgLight: "bg-blue-50"
+      icon: Student,
+      iconBg: "bg-blue-50",
+      iconColor: "text-blue-600",
     },
     {
       id: 2,
       title: "Hadir Hari Ini",
-      value: "1,180",
-      change: "+5.2%",
+      value: dashData ? dashData.hadirHariIni.toLocaleString() : "—",
+      change: `+${dashData ? (dashData.persentaseKehadiran - dashData.persentaseKemarin).toFixed(1) : "0"}%`,
       trend: "up",
       icon: CheckCircle,
-      color: "bg-success-500",
-      bgLight: "bg-success-50"
+      iconBg: "bg-emerald-50",
+      iconColor: "text-emerald-600",
     },
     {
       id: 3,
-      title: "Izin/Sakit",
-      value: "45",
+      title: "Terlambat",
+      value: dashData ? dashData.terlambatHariIni.toLocaleString() : "—",
       change: "-2.1%",
       trend: "down",
       icon: Clock,
-      color: "bg-warning-500",
-      bgLight: "bg-warning-50"
+      iconBg: "bg-amber-50",
+      iconColor: "text-amber-600",
     },
     {
       id: 4,
       title: "Alpha",
-      value: "23",
+      value: dashData ? dashData.alphaHariIni.toLocaleString() : "—",
       change: "-8.3%",
       trend: "down",
       icon: XCircle,
-      color: "bg-danger-500",
-      bgLight: "bg-danger-50"
+      iconBg: "bg-red-50",
+      iconColor: "text-red-500",
     },
   ];
 
-  const recentAttendance = [
-    {
-      id: 1,
-      name: "Ahmad Rizki Maulana",
-      nis: "2024001",
-      kelas: "XII RPL 1",
-      waktu: "08:15:24",
-      status: "Hadir",
-      foto: "https://i.pravatar.cc/150?u=student1"
-    },
-    {
-      id: 2,
-      name: "Siti Nurhaliza",
-      nis: "2024002",
-      kelas: "XII RPL 1",
-      waktu: "08:14:12",
-      status: "Hadir",
-      foto: "https://i.pravatar.cc/150?u=student2"
-    },
-    {
-      id: 3,
-      name: "Budi Santoso",
-      nis: "2024003",
-      kelas: "XII RPL 2",
-      waktu: "08:13:45",
-      status: "Hadir",
-      foto: "https://i.pravatar.cc/150?u=student3"
-    },
-    {
-      id: 4,
-      name: "Dewi Lestari",
-      nis: "2024004",
-      kelas: "XII RPL 1",
-      waktu: "08:12:33",
-      status: "Hadir",
-      foto: "https://i.pravatar.cc/150?u=student4"
-    },
-    {
-      id: 5,
-      name: "Eko Prasetyo",
-      nis: "2024005",
-      kelas: "XII RPL 2",
-      waktu: "08:11:22",
-      status: "Hadir",
-      foto: "https://i.pravatar.cc/150?u=student5"
-    },
-  ];
+  const recentAttendance = recentData?.data || [];
 
-  const classAttendance = [
-    { kelas: "XII RPL 1", total: 36, hadir: 34, izin: 1, alpha: 1, persentase: 94.4 },
-    { kelas: "XII RPL 2", total: 35, hadir: 33, izin: 2, alpha: 0, persentase: 94.3 },
-    { kelas: "XI RPL 1", total: 38, hadir: 36, izin: 1, alpha: 1, persentase: 94.7 },
-    { kelas: "XI RPL 2", total: 36, hadir: 34, izin: 2, alpha: 0, persentase: 94.4 },
-  ];
-
-  const weeklyData = [
-    { day: "Sen", percentage: 95 },
-    { day: "Sel", percentage: 92 },
-    { day: "Rab", percentage: 97 },
-    { day: "Kam", percentage: 94 },
-    { day: "Jum", percentage: 89 },
-  ];
+  const weeklyData = dashData?.trendMingguan?.map((d: { hari: string; hadir: number }) => ({
+    day: d.hari,
+    percentage: Math.round((d.hadir / (dashData?.totalSiswa || 1)) * 100),
+  })) || [];
 
   const currentDate = new Date().toLocaleDateString('id-ID', { 
     weekday: 'long', 
@@ -138,150 +85,142 @@ export default function DashboardPage() {
     day: 'numeric' 
   });
 
+  const statusColor = (status: string) => {
+    switch (status) {
+      case "Hadir": return "success";
+      case "Terlambat": return "warning";
+      case "Alpha": return "danger";
+      default: return "default";
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50/50">
-      {/* Top Bar */}
-      <div className="bg-white border-b border-divider/50 px-8 py-4 flex items-center justify-between">
-        <div className="flex-1 max-w-xl">
-          <Input
-            classNames={{
-              base: "max-w-full",
-              inputWrapper: "border-0 bg-gray-100 hover:bg-gray-200",
-            }}
-            placeholder="Cari siswa, kelas, atau NIS..."
-            size="lg"
-            startContent={<MagnifyingGlass size={20} className="text-default-400" />}
-            type="search"
-          />
-        </div>
-        <div className="flex items-center gap-4">
-          <Button isIconOnly variant="light" className="rounded-full relative">
-            <Bell size={24} />
-            <span className="absolute top-2 right-2 w-2 h-2 bg-danger rounded-full"></span>
-          </Button>
-          <div className="flex items-center gap-3 pl-4 border-l">
-            <Avatar
-              src="https://i.pravatar.cc/150?u=admin"
-              size="md"
-            />
-            <div>
-              <p className="text-sm font-semibold">Admin Sekolah</p>
-              <p className="text-xs text-default-400">Administrator</p>
-            </div>
+    <div className="min-h-screen">
+      <TopBar showSearch searchPlaceholder="Cari siswa, kelas, atau NIS..." />
+
+      <div className="p-4 sm:p-6 space-y-4 sm:space-y-6 max-w-[1400px] mx-auto">
+        {/* Welcome Section */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Dashboard</h1>
+            <p className="text-xs sm:text-sm text-gray-500 mt-0.5">{currentDate}</p>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              as={Link}
+              href="/presensi"
+              size="sm"
+              variant="bordered"
+              className="border-gray-200 text-gray-700"
+              startContent={<QrCode size={16} />}
+            >
+              Scan QR
+            </Button>
+            <Button
+              as={Link}
+              href="/presensi"
+              size="sm"
+              color="primary"
+              className="bg-blue-600 font-medium"
+              startContent={<Plus size={16} weight="bold" />}
+            >
+              Input Presensi
+            </Button>
           </div>
         </div>
-      </div>
-
-      <div className="p-8 space-y-6">
-        {/* Welcome Banner */}
-        <Card className="bg-gradient-to-br from-primary-500 to-primary-600 border-0">
-          <CardBody className="p-6">
-            <div className="flex items-center justify-between">
-              <div className="text-white space-y-2">
-                <h1 className="text-3xl font-bold">Selamat Datang! 👋</h1>
-                <p className="text-white/90">{currentDate}</p>
-                <div className="flex items-center gap-4 mt-4">
-                  <div className="flex items-center gap-2">
-                    <Clock size={20} weight="fill" />
-                    <span className="text-sm">08:00 - 15:00</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Calendar size={20} weight="fill" />
-                    <span className="text-sm">Semester Genap 2024/2025</span>
-                  </div>
-                </div>
-              </div>
-              <Button 
-                className="bg-white text-primary-600 font-semibold"
-                startContent={<Plus weight="bold" />}
-                size="lg"
-              >
-                Input Presensi Manual
-              </Button>
-            </div>
-          </CardBody>
-        </Card>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           {stats.map((stat) => {
             const Icon = stat.icon;
-            const TrendIcon = stat.trend === "up" ? TrendUp : TrendDown;
+            const isUp = stat.trend === "up";
             
             return (
-              <Card key={stat.id} className="border border-divider/50 shadow-sm">
-                <CardBody className="p-5">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className={`w-12 h-12 rounded-xl ${stat.bgLight} flex items-center justify-center`}>
-                      <Icon size={24} weight="fill" className={stat.color.replace('bg-', 'text-')} />
-                    </div>
-                    <Chip 
-                      size="sm" 
-                      variant="flat" 
-                      color={stat.trend === "up" ? "success" : "danger"}
-                      startContent={<TrendIcon size={14} weight="bold" />}
-                    >
-                      {stat.change}
-                    </Chip>
+              <div key={stat.id} className="bg-white rounded-xl sm:rounded-2xl border border-gray-100 p-3.5 sm:p-5 hover:shadow-sm transition-shadow">
+                <div className="flex items-center justify-between mb-3 sm:mb-4">
+                  <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl ${stat.iconBg} flex items-center justify-center`}>
+                    <Icon size={18} weight="fill" className={stat.iconColor} />
                   </div>
-                  <p className="text-sm text-default-500 mb-1">{stat.title}</p>
-                  <p className="text-3xl font-bold">{stat.value}</p>
-                </CardBody>
-              </Card>
+                  <div className={`flex items-center gap-1 text-[10px] sm:text-xs font-medium ${isUp ? "text-emerald-600" : "text-red-500"}`}>
+                    {isUp ? <TrendUp size={12} weight="bold" /> : <TrendDown size={12} weight="bold" />}
+                    {stat.change}
+                  </div>
+                </div>
+                <p className="text-xl sm:text-2xl font-bold text-gray-900">{stat.value}</p>
+                <p className="text-[10px] sm:text-xs text-gray-500 mt-0.5 sm:mt-1">{stat.title}</p>
+              </div>
             );
           })}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Recent Attendance */}
-          <div className="lg:col-span-2 space-y-4">
-            <Card className="border border-divider/50 shadow-sm">
-              <CardHeader className="justify-between px-6">
-                <h2 className="text-xl font-bold">Presensi Terbaru</h2>
-                <div className="flex gap-2">
-                  <Button size="sm" variant="flat" startContent={<Funnel size={18} />}>
-                    Filter
-                  </Button>
-                  <Button size="sm" variant="flat" color="primary" startContent={<Download size={18} />}>
-                    Export
-                  </Button>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+          {/* Recent Attendance Table */}
+          <div className="lg:col-span-2">
+            <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-100 overflow-hidden">
+              <div className="px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between border-b border-gray-50">
+                <div>
+                  <h2 className="font-semibold text-gray-900">Presensi Terbaru</h2>
+                  <p className="text-xs text-gray-400 mt-0.5">Update real-time hari ini</p>
                 </div>
-              </CardHeader>
-              <CardBody className="px-0">
+                <Button
+                  as={Link}
+                  href="/presensi"
+                  size="sm"
+                  variant="light"
+                  className="text-blue-600 font-medium"
+                  endContent={<ArrowRight size={14} />}
+                >
+                  Lihat Semua
+                </Button>
+              </div>
+              {recentLoading ? (
+                <div className="p-6 space-y-4">
+                  {[1,2,3,4,5].map((i) => (
+                    <div key={i} className="flex items-center gap-3">
+                      <Skeleton className="w-8 h-8 rounded-full" />
+                      <div className="flex-1 space-y-2">
+                        <Skeleton className="w-32 h-3 rounded" />
+                        <Skeleton className="w-20 h-2 rounded" />
+                      </div>
+                      <Skeleton className="w-16 h-6 rounded-full" />
+                    </div>
+                  ))}
+                </div>
+              ) : (
                 <Table 
                   removeWrapper
                   aria-label="Tabel presensi terbaru"
                   classNames={{
-                    th: "bg-default-50",
+                    th: "bg-gray-50/50 text-[11px] font-semibold text-gray-400 uppercase tracking-wider",
+                    td: "py-3",
                   }}
                 >
                   <TableHeader>
-                    <TableColumn>SISWA</TableColumn>
-                    <TableColumn>NIS</TableColumn>
-                    <TableColumn>KELAS</TableColumn>
-                    <TableColumn>WAKTU</TableColumn>
-                    <TableColumn>STATUS</TableColumn>
+                    <TableColumn>Siswa</TableColumn>
+                    <TableColumn className="hidden sm:table-cell">Kelas</TableColumn>
+                    <TableColumn className="hidden sm:table-cell">Waktu</TableColumn>
+                    <TableColumn>Status</TableColumn>
                   </TableHeader>
                   <TableBody>
-                    {recentAttendance.map((item) => (
-                      <TableRow key={item.id}>
+                    {recentAttendance.map((item: { id: string; nama: string; kelas: string; waktu: string; status: string }) => (
+                      <TableRow key={item.id} className="hover:bg-gray-50/50">
                         <TableCell>
-                          <div className="flex items-center gap-3">
-                            <Avatar src={item.foto} size="sm" />
-                            <span className="font-medium">{item.name}</span>
+                          <div className="flex items-center gap-2 sm:gap-3">
+                            <Avatar name={item.nama} size="sm" className="w-7 h-7 sm:w-8 sm:h-8" />
+                            <div>
+                              <p className="text-xs sm:text-sm font-medium text-gray-900">{item.nama}</p>
+                              <p className="text-[10px] sm:text-xs text-gray-400">{item.kelas} <span className="sm:hidden">&middot; {item.waktu}</span></p>
+                            </div>
                           </div>
                         </TableCell>
-                        <TableCell>
-                          <span className="text-default-500">{item.nis}</span>
+                        <TableCell className="hidden sm:table-cell">
+                          <span className="text-sm text-gray-600">{item.kelas}</span>
+                        </TableCell>
+                        <TableCell className="hidden sm:table-cell">
+                          <span className="text-sm text-gray-500">{item.waktu}</span>
                         </TableCell>
                         <TableCell>
-                          <Chip size="sm" variant="flat">{item.kelas}</Chip>
-                        </TableCell>
-                        <TableCell>
-                          <span className="text-default-500">{item.waktu}</span>
-                        </TableCell>
-                        <TableCell>
-                          <Chip size="sm" color="success" variant="flat">
+                          <Chip size="sm" color={statusColor(item.status)} variant="flat" className="text-[10px] sm:text-xs">
                             {item.status}
                           </Chip>
                         </TableCell>
@@ -289,137 +228,129 @@ export default function DashboardPage() {
                     ))}
                   </TableBody>
                 </Table>
-              </CardBody>
-              <CardFooter className="justify-center">
-                <Button variant="light" color="primary">
-                  Lihat Semua Presensi
-                </Button>
-              </CardFooter>
-            </Card>
+              )}
+            </div>
           </div>
 
-          {/* Right Sidebar */}
-          <div className="space-y-4">
-            {/* Weekly Chart */}
-            <Card className="border border-divider/50 shadow-sm">
-              <CardHeader className="justify-between">
-                <h3 className="font-bold">Kehadiran Minggu Ini</h3>
-                <Button isIconOnly size="sm" variant="light">
-                  <DotsThree size={20} weight="bold" />
-                </Button>
-              </CardHeader>
-              <CardBody>
-                <div className="space-y-4">
-                  {weeklyData.map((item, index) => (
-                    <div key={index} className="space-y-2">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="font-medium">{item.day}</span>
-                        <span className="text-primary font-semibold">{item.percentage}%</span>
+          {/* Right Column */}
+          <div className="space-y-6">
+            {/* Weekly Attendance */}
+            <div className="bg-white rounded-2xl border border-gray-100 p-5">
+              <div className="flex items-center justify-between mb-5">
+                <div>
+                  <h3 className="font-semibold text-gray-900 text-sm">Kehadiran Minggu Ini</h3>
+                  <p className="text-xs text-gray-400 mt-0.5">Rata-rata: 93.4%</p>
+                </div>
+                <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
+                  <ChartLineUp size={16} className="text-blue-600" weight="fill" />
+                </div>
+              </div>
+              <div className="space-y-3">
+                {weeklyData.map((item: { day: string; percentage: number }, index: number) => (
+                  <div key={index} className="flex items-center gap-3">
+                    <span className="text-xs font-medium text-gray-500 w-8">{item.day}</span>
+                    <div className="flex-1">
+                      <div className="w-full bg-gray-100 rounded-full h-2">
+                        <div 
+                          className={`h-2 rounded-full transition-all duration-500 ${
+                            item.percentage >= 95 ? 'bg-emerald-500' : 
+                            item.percentage >= 90 ? 'bg-blue-500' : 'bg-amber-500'
+                          }`}
+                          style={{ width: `${item.percentage}%` }}
+                        />
                       </div>
-                      <Progress 
-                        value={item.percentage} 
-                        color="primary"
-                        size="sm"
-                        className="max-w-full"
-                      />
                     </div>
-                  ))}
-                </div>
-                <div className="mt-6 p-4 bg-primary-50 rounded-lg">
-                  <p className="text-sm text-primary-700 font-medium">
-                    📊 Rata-rata kehadiran minggu ini: <strong>93.4%</strong>
-                  </p>
-                </div>
-              </CardBody>
-            </Card>
+                    <span className="text-xs font-semibold text-gray-700 w-10 text-right">{item.percentage}%</span>
+                  </div>
+                ))}
+              </div>
+            </div>
 
             {/* Quick Actions */}
-            <Card className="border border-divider/50 shadow-sm">
-              <CardHeader>
-                <h3 className="font-bold">Aksi Cepat</h3>
-              </CardHeader>
-              <CardBody className="gap-2">
-                <Button 
-                  variant="flat" 
-                  color="primary" 
-                  className="justify-start"
-                  startContent={<ClipboardText size={20} />}
-                >
-                  Input Presensi Manual
-                </Button>
-                <Button 
-                  variant="flat" 
-                  className="justify-start"
-                  startContent={<Download size={20} />}
-                >
-                  Export Laporan
-                </Button>
-                <Button 
-                  variant="flat" 
-                  className="justify-start"
-                  startContent={<Calendar size={20} />}
-                >
-                  Atur Jadwal
-                </Button>
-                <Button 
-                  variant="flat" 
-                  className="justify-start"
-                  startContent={<Users size={20} />}
-                >
-                  Kelola Siswa
-                </Button>
-              </CardBody>
-            </Card>
+            <div className="bg-white rounded-2xl border border-gray-100 p-5">
+              <h3 className="font-semibold text-gray-900 text-sm mb-4">Aksi Cepat</h3>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { label: "Scan QR", icon: QrCode, href: "/presensi", color: "bg-blue-50 text-blue-600" },
+                  { label: "Export", icon: Download, href: "/laporan", color: "bg-emerald-50 text-emerald-600" },
+                  { label: "Jadwal", icon: Calendar, href: "/jadwal", color: "bg-amber-50 text-amber-600" },
+                  { label: "Siswa", icon: Users, href: "/siswa", color: "bg-purple-50 text-purple-600" },
+                ].map((action) => {
+                  const Icon = action.icon;
+                  return (
+                    <Link
+                      key={action.label}
+                      href={action.href}
+                      className="flex flex-col items-center gap-2 p-3 rounded-xl hover:bg-gray-50 transition-colors group"
+                    >
+                      <div className={`w-10 h-10 rounded-xl ${action.color} flex items-center justify-center group-hover:scale-105 transition-transform`}>
+                        <Icon size={20} weight="fill" />
+                      </div>
+                      <span className="text-xs font-medium text-gray-600">{action.label}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Class Attendance */}
-        <Card className="border border-divider/50 shadow-sm">
-          <CardHeader className="justify-between">
-            <h2 className="text-xl font-bold">Kehadiran Per Kelas</h2>
-            <Button size="sm" variant="light" color="primary">
-              Lihat Detail
+        {/* Class Attendance Grid */}
+        <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-100 overflow-hidden">
+          <div className="px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between border-b border-gray-50">
+            <div>
+              <h2 className="font-semibold text-gray-900">Kehadiran Per Kelas</h2>
+              <p className="text-xs text-gray-400 mt-0.5">Ringkasan kehadiran hari ini</p>
+            </div>
+            <Button
+              as={Link}
+              href="/kelas"
+              size="sm"
+              variant="light"
+              className="text-blue-600 font-medium"
+              endContent={<ArrowRight size={14} />}
+            >
+              Semua Kelas
             </Button>
-          </CardHeader>
-          <CardBody>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {classAttendance.map((kelas, index) => (
-                <div key={index} className="p-4 bg-default-50 rounded-lg space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-bold text-lg">{kelas.kelas}</h4>
-                    <Chip size="sm" color="primary" variant="flat">
+          </div>
+          <div className="p-4 sm:p-6">
+            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+              {[
+                { kelas: "XII RPL 1", total: 36, hadir: 34, izin: 1, alpha: 1, persentase: 94.4 },
+                { kelas: "XII RPL 2", total: 35, hadir: 33, izin: 2, alpha: 0, persentase: 94.3 },
+                { kelas: "XI RPL 1", total: 38, hadir: 36, izin: 1, alpha: 1, persentase: 94.7 },
+                { kelas: "XI RPL 2", total: 36, hadir: 34, izin: 2, alpha: 0, persentase: 94.4 },
+              ].map((kelas, index) => (
+                <div key={index} className="p-3 sm:p-4 rounded-xl border border-gray-100 hover:border-blue-200 hover:shadow-sm transition-all group">
+                  <div className="flex items-center justify-between mb-2 sm:mb-3">
+                    <h4 className="font-semibold text-gray-900 text-sm sm:text-base">{kelas.kelas}</h4>
+                    <span className={`text-sm font-bold ${
+                      kelas.persentase >= 95 ? 'text-emerald-600' : 
+                      kelas.persentase >= 90 ? 'text-blue-600' : 'text-amber-600'
+                    }`}>
                       {kelas.persentase}%
-                    </Chip>
+                    </span>
                   </div>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-default-500">Total Siswa:</span>
-                      <span className="font-semibold">{kelas.total}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-success-600">Hadir:</span>
-                      <span className="font-semibold text-success-600">{kelas.hadir}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-warning-600">Izin:</span>
-                      <span className="font-semibold text-warning-600">{kelas.izin}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-danger-600">Alpha:</span>
-                      <span className="font-semibold text-danger-600">{kelas.alpha}</span>
-                    </div>
+                  <div className="w-full bg-gray-100 rounded-full h-1.5 mb-3">
+                    <div 
+                      className={`h-1.5 rounded-full ${
+                        kelas.persentase >= 95 ? 'bg-emerald-500' : 
+                        kelas.persentase >= 90 ? 'bg-blue-500' : 'bg-amber-500'
+                      }`}
+                      style={{ width: `${kelas.persentase}%` }}
+                    />
                   </div>
-                  <Progress 
-                    value={kelas.persentase} 
-                    color="success"
-                    size="sm"
-                    className="mt-2"
-                  />
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-[10px] sm:text-xs">
+                    <span className="text-gray-400">{kelas.total} siswa</span>
+                    <span className="text-emerald-600">{kelas.hadir} hadir</span>
+                    {kelas.izin > 0 && <span className="text-amber-600">{kelas.izin} izin</span>}
+                    {kelas.alpha > 0 && <span className="text-red-500">{kelas.alpha} alpha</span>}
+                  </div>
                 </div>
               ))}
             </div>
-          </CardBody>
-        </Card>
+          </div>
+        </div>
       </div>
     </div>
   );

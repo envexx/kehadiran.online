@@ -1,24 +1,31 @@
 "use client";
 
-import { Card, CardBody, CardHeader } from "@heroui/card";
+import { useState } from "react";
 import { Button } from "@heroui/button";
 import { Input } from "@heroui/input";
 import { Avatar } from "@heroui/avatar";
 import { Chip } from "@heroui/chip";
 import { Select, SelectItem } from "@heroui/select";
 import { Tabs, Tab } from "@heroui/tabs";
+import { TopBar } from "@/components/top-bar";
+import { usePresensiStats } from "@/hooks/use-swr-hooks";
 import { 
   MagnifyingGlass, 
-  Bell, 
   QrCode,
-  Fingerprint,
   Camera,
   CheckCircle,
   XCircle,
-  Clock
+  Clock,
+  PencilSimple,
+  WifiHigh,
+  WifiSlash,
+  ArrowClockwise
 } from "phosphor-react";
 
 export default function PresensiPage() {
+  const [cameraActive, setCameraActive] = useState(false);
+  const [selectedTab, setSelectedTab] = useState("qr");
+
   const currentDate = new Date().toLocaleDateString('id-ID', { 
     weekday: 'long', 
     year: 'numeric', 
@@ -32,230 +39,231 @@ export default function PresensiPage() {
   });
 
   const recentScans = [
-    {
-      id: 1,
-      name: "Ahmad Rizki Maulana",
-      nis: "2024001",
-      kelas: "XII RPL 1",
-      waktu: "08:15:24",
-      status: "Hadir",
-      foto: "https://i.pravatar.cc/150?u=student1"
-    },
-    {
-      id: 2,
-      name: "Siti Nurhaliza",
-      nis: "2024002",
-      kelas: "XII RPL 1",
-      waktu: "08:14:12",
-      status: "Hadir",
-      foto: "https://i.pravatar.cc/150?u=student2"
-    },
-    {
-      id: 3,
-      name: "Budi Santoso",
-      nis: "2024003",
-      kelas: "XII RPL 2",
-      waktu: "08:13:45",
-      status: "Hadir",
-      foto: "https://i.pravatar.cc/150?u=student3"
-    },
+    { id: 1, name: "Ahmad Rizki Maulana", nis: "2024001", kelas: "XII RPL 1", waktu: "08:15:24", status: "Hadir", foto: "https://i.pravatar.cc/150?u=student1" },
+    { id: 2, name: "Siti Nurhaliza", nis: "2024002", kelas: "XII RPL 1", waktu: "08:14:12", status: "Hadir", foto: "https://i.pravatar.cc/150?u=student2" },
+    { id: 3, name: "Budi Santoso", nis: "2024003", kelas: "XII RPL 2", waktu: "08:13:45", status: "Terlambat", foto: "https://i.pravatar.cc/150?u=student3" },
+    { id: 4, name: "Dewi Lestari", nis: "2024004", kelas: "XII RPL 1", waktu: "08:12:33", status: "Hadir", foto: "https://i.pravatar.cc/150?u=student4" },
+    { id: 5, name: "Eko Prasetyo", nis: "2024005", kelas: "XII RPL 2", waktu: "08:11:22", status: "Hadir", foto: "https://i.pravatar.cc/150?u=student5" },
+    { id: 6, name: "Fitri Handayani", nis: "2024006", kelas: "XI RPL 1", waktu: "08:10:15", status: "Hadir", foto: "https://i.pravatar.cc/150?u=student6" },
   ];
 
-  return (
-    <div className="min-h-screen bg-gray-50/50">
-      {/* Top Bar */}
-      <div className="bg-white border-b border-divider/50 px-8 py-4 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Input Presensi</h1>
-          <p className="text-sm text-default-500">{currentDate} • {currentTime}</p>
-        </div>
-        <div className="flex items-center gap-4">
-          <Button isIconOnly variant="light" className="rounded-full relative">
-            <Bell size={24} />
-            <span className="absolute top-2 right-2 w-2 h-2 bg-danger rounded-full"></span>
-          </Button>
-          <div className="flex items-center gap-3 pl-4 border-l">
-            <Avatar
-              src="https://i.pravatar.cc/150?u=admin"
-              size="md"
-            />
-            <div>
-              <p className="text-sm font-semibold">Admin Sekolah</p>
-              <p className="text-xs text-default-400">Administrator</p>
-            </div>
-          </div>
-        </div>
-      </div>
+  const statusColor = (status: string) => {
+    switch (status) {
+      case "Hadir": return "success";
+      case "Terlambat": return "warning";
+      case "Alpha": return "danger";
+      default: return "default";
+    }
+  };
 
-      <div className="p-4 md:p-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left - Input Methods */}
-          <div className="lg:col-span-2 space-y-6">
-            <Card className="border border-divider/50 shadow-sm">
-              <CardHeader>
-                <h2 className="text-xl font-bold">Metode Input Presensi</h2>
-              </CardHeader>
-              <CardBody>
-                <Tabs aria-label="Metode Presensi" color="primary" size="lg">
-                  <Tab 
-                    key="qr" 
-                    title={
-                      <div className="flex items-center gap-2">
-                        <QrCode size={20} />
-                        <span>QR Code</span>
-                      </div>
-                    }
-                  >
-                    <div className="py-8 space-y-6">
-                      <div className="flex flex-col items-center justify-center">
-                        <div className="w-80 h-80 bg-default-100 rounded-2xl flex items-center justify-center border-2 border-dashed border-default-300">
-                          <div className="text-center space-y-4">
-                            <QrCode size={120} className="mx-auto text-default-400" />
-                            <p className="text-default-500">Arahkan QR Code ke kamera</p>
-                            <Button color="primary" startContent={<Camera size={20} />}>
+  return (
+    <div className="min-h-screen">
+      <TopBar title="Input Presensi" subtitle={`${currentDate} \u2022 ${currentTime}`} />
+
+      <div className="p-6 max-w-[1400px] mx-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+          {/* Left - Scanner / Input */}
+          <div className="lg:col-span-3 space-y-6">
+            <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+              <Tabs 
+                aria-label="Metode Presensi" 
+                selectedKey={selectedTab}
+                onSelectionChange={(key) => setSelectedTab(key as string)}
+                classNames={{
+                  tabList: "bg-gray-50 p-1 mx-5 mt-5 rounded-xl",
+                  tab: "h-9 rounded-lg text-sm",
+                  cursor: "bg-white shadow-sm rounded-lg",
+                  tabContent: "group-data-[selected=true]:text-blue-600 group-data-[selected=true]:font-semibold text-gray-500",
+                }}
+              >
+                <Tab 
+                  key="qr" 
+                  title={
+                    <div className="flex items-center gap-2">
+                      <QrCode size={16} />
+                      <span>QR Code</span>
+                    </div>
+                  }
+                >
+                  <div className="p-6">
+                    <div className="flex flex-col items-center">
+                      {/* Scanner Area */}
+                      <div className="relative w-full max-w-sm aspect-square bg-gray-900 rounded-2xl overflow-hidden flex items-center justify-center">
+                        {cameraActive ? (
+                          <>
+                            {/* Camera placeholder - in production, use html5-qrcode or react-qr-reader */}
+                            <div className="absolute inset-0 bg-gradient-to-b from-black/20 to-transparent" />
+                            <div className="absolute inset-8 border-2 border-white/50 rounded-2xl" />
+                            <div className="absolute top-8 left-8 w-8 h-8 border-t-3 border-l-3 border-blue-400 rounded-tl-lg" />
+                            <div className="absolute top-8 right-8 w-8 h-8 border-t-3 border-r-3 border-blue-400 rounded-tr-lg" />
+                            <div className="absolute bottom-8 left-8 w-8 h-8 border-b-3 border-l-3 border-blue-400 rounded-bl-lg" />
+                            <div className="absolute bottom-8 right-8 w-8 h-8 border-b-3 border-r-3 border-blue-400 rounded-br-lg" />
+                            {/* Scan line animation */}
+                            <div className="absolute left-8 right-8 h-0.5 bg-blue-400 animate-pulse" style={{ top: '50%' }} />
+                            <p className="text-white/60 text-sm mt-32">Arahkan QR Code ke kamera...</p>
+                            <Button 
+                              size="sm" 
+                              className="absolute bottom-4 bg-white/20 backdrop-blur-sm text-white"
+                              onPress={() => setCameraActive(false)}
+                            >
+                              Matikan Kamera
+                            </Button>
+                          </>
+                        ) : (
+                          <div className="text-center space-y-4 p-8">
+                            <div className="w-20 h-20 rounded-2xl bg-white/10 flex items-center justify-center mx-auto">
+                              <QrCode size={40} className="text-white/60" />
+                            </div>
+                            <div>
+                              <p className="text-white/80 font-medium">QR Code Scanner</p>
+                              <p className="text-white/40 text-sm mt-1">Aktifkan kamera untuk mulai scan</p>
+                            </div>
+                            <Button 
+                              color="primary" 
+                              className="bg-blue-600 font-medium"
+                              startContent={<Camera size={18} />}
+                              onPress={() => setCameraActive(true)}
+                            >
                               Aktifkan Kamera
                             </Button>
                           </div>
-                        </div>
+                        )}
                       </div>
-                    </div>
-                  </Tab>
-                  
-                  <Tab 
-                    key="fingerprint" 
-                    title={
-                      <div className="flex items-center gap-2">
-                        <Fingerprint size={20} />
-                        <span>Sidik Jari</span>
-                      </div>
-                    }
-                  >
-                    <div className="py-8 space-y-6">
-                      <div className="flex flex-col items-center justify-center">
-                        <div className="w-80 h-80 bg-default-100 rounded-2xl flex items-center justify-center">
-                          <div className="text-center space-y-4">
-                            <Fingerprint size={120} className="mx-auto text-default-400" />
-                            <p className="text-default-500">Tempelkan jari ke scanner</p>
-                            <Chip color="success" variant="flat">Device Ready</Chip>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </Tab>
-                  
-                  <Tab 
-                    key="manual" 
-                    title={
-                      <div className="flex items-center gap-2">
-                        <MagnifyingGlass size={20} />
-                        <span>Manual</span>
-                      </div>
-                    }
-                  >
-                    <div className="py-8 space-y-6">
-                      <div className="space-y-4">
-                        <Input
-                          label="Cari Siswa (NIS/Nama)"
-                          placeholder="Ketik NIS atau nama siswa..."
-                          size="lg"
-                          startContent={<MagnifyingGlass size={20} />}
-                        />
-                        
-                        <div className="grid grid-cols-2 gap-4">
-                          <Select label="Kelas" placeholder="Pilih kelas" size="lg">
-                            <SelectItem key="12rpl1">XII RPL 1</SelectItem>
-                            <SelectItem key="12rpl2">XII RPL 2</SelectItem>
-                            <SelectItem key="11rpl1">XI RPL 1</SelectItem>
-                            <SelectItem key="11rpl2">XI RPL 2</SelectItem>
-                          </Select>
-                          
-                          <Select label="Status" placeholder="Pilih status" size="lg">
-                            <SelectItem key="hadir">Hadir</SelectItem>
-                            <SelectItem key="izin">Izin</SelectItem>
-                            <SelectItem key="sakit">Sakit</SelectItem>
-                            <SelectItem key="alpha">Alpha</SelectItem>
-                          </Select>
-                        </div>
 
-                        <Input
-                          label="Keterangan (Opsional)"
-                          placeholder="Tambahkan keterangan jika diperlukan"
-                          size="lg"
-                        />
-
-                        <Button color="primary" size="lg" className="w-full">
-                          Simpan Presensi
-                        </Button>
+                      {/* Scanner Info */}
+                      <div className="flex items-center gap-4 mt-4">
+                        <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                          <WifiHigh size={14} className="text-emerald-500" />
+                          <span>Online</span>
+                        </div>
+                        <div className="w-px h-3 bg-gray-200" />
+                        <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                          <span>Mode: Gerbang Sekolah</span>
+                        </div>
+                        <div className="w-px h-3 bg-gray-200" />
+                        <button className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700">
+                          <ArrowClockwise size={14} />
+                          <span>Reset</span>
+                        </button>
                       </div>
                     </div>
-                  </Tab>
-                </Tabs>
-              </CardBody>
-            </Card>
+                  </div>
+                </Tab>
+                
+                <Tab 
+                  key="manual" 
+                  title={
+                    <div className="flex items-center gap-2">
+                      <PencilSimple size={16} />
+                      <span>Input Manual</span>
+                    </div>
+                  }
+                >
+                  <div className="p-6 space-y-5">
+                    <Input
+                      label="Cari Siswa"
+                      placeholder="Ketik NIS atau nama siswa..."
+                      size="lg"
+                      startContent={<MagnifyingGlass size={18} className="text-gray-400" />}
+                      classNames={{
+                        inputWrapper: "bg-gray-50 border border-gray-200 shadow-none",
+                      }}
+                    />
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <Select label="Kelas" placeholder="Pilih kelas" size="lg" classNames={{ trigger: "bg-gray-50 border border-gray-200 shadow-none" }}>
+                        <SelectItem key="12rpl1">XII RPL 1</SelectItem>
+                        <SelectItem key="12rpl2">XII RPL 2</SelectItem>
+                        <SelectItem key="11rpl1">XI RPL 1</SelectItem>
+                        <SelectItem key="11rpl2">XI RPL 2</SelectItem>
+                      </Select>
+                      
+                      <Select label="Status" placeholder="Pilih status" size="lg" classNames={{ trigger: "bg-gray-50 border border-gray-200 shadow-none" }}>
+                        <SelectItem key="hadir">Hadir</SelectItem>
+                        <SelectItem key="terlambat">Terlambat</SelectItem>
+                        <SelectItem key="izin">Izin</SelectItem>
+                        <SelectItem key="sakit">Sakit</SelectItem>
+                        <SelectItem key="alpha">Alpha</SelectItem>
+                      </Select>
+                    </div>
+
+                    <Input
+                      label="Keterangan"
+                      placeholder="Tambahkan keterangan jika diperlukan (opsional)"
+                      size="lg"
+                      classNames={{
+                        inputWrapper: "bg-gray-50 border border-gray-200 shadow-none",
+                      }}
+                    />
+
+                    <Button color="primary" size="lg" className="w-full bg-blue-600 font-medium">
+                      Simpan Presensi
+                    </Button>
+                  </div>
+                </Tab>
+              </Tabs>
+            </div>
           </div>
 
-          {/* Right - Recent Scans */}
-          <div className="space-y-6">
-            <Card className="border border-divider/50 shadow-sm">
-              <CardHeader className="justify-between">
-                <h3 className="font-bold">Scan Terbaru</h3>
-                <Chip size="sm" color="success" variant="flat">
+          {/* Right - Live Feed & Stats */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Today Stats */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="bg-white rounded-2xl border border-gray-100 p-4 text-center">
+                <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center mx-auto mb-2">
+                  <CheckCircle size={16} className="text-emerald-600" weight="fill" />
+                </div>
+                <p className="text-xl font-bold text-gray-900">1,180</p>
+                <p className="text-[10px] text-gray-400">Hadir</p>
+              </div>
+              <div className="bg-white rounded-2xl border border-gray-100 p-4 text-center">
+                <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center mx-auto mb-2">
+                  <Clock size={16} className="text-amber-600" weight="fill" />
+                </div>
+                <p className="text-xl font-bold text-gray-900">45</p>
+                <p className="text-[10px] text-gray-400">Izin/Sakit</p>
+              </div>
+              <div className="bg-white rounded-2xl border border-gray-100 p-4 text-center">
+                <div className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center mx-auto mb-2">
+                  <XCircle size={16} className="text-red-500" weight="fill" />
+                </div>
+                <p className="text-xl font-bold text-gray-900">23</p>
+                <p className="text-[10px] text-gray-400">Alpha</p>
+              </div>
+            </div>
+
+            {/* Live Feed */}
+            <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+              <div className="px-5 py-4 flex items-center justify-between border-b border-gray-50">
+                <div className="flex items-center gap-2">
+                  <div className="relative">
+                    <div className="w-2 h-2 bg-emerald-500 rounded-full" />
+                    <div className="absolute inset-0 w-2 h-2 bg-emerald-500 rounded-full animate-ping" />
+                  </div>
+                  <h3 className="font-semibold text-gray-900 text-sm">Scan Terbaru</h3>
+                </div>
+                <Chip size="sm" variant="flat" color="success" className="text-[10px]">
                   Live
                 </Chip>
-              </CardHeader>
-              <CardBody>
-                <div className="space-y-4">
-                  {recentScans.map((scan) => (
-                    <div 
-                      key={scan.id}
-                      className="flex items-center gap-3 p-3 bg-default-50 rounded-lg"
-                    >
-                      <Avatar src={scan.foto} size="md" />
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-sm truncate">{scan.name}</p>
-                        <p className="text-xs text-default-400">{scan.nis} • {scan.kelas}</p>
-                      </div>
-                      <div className="text-right">
-                        <Chip size="sm" color="success" variant="flat" startContent={<CheckCircle size={14} />}>
-                          Hadir
-                        </Chip>
-                        <p className="text-xs text-default-400 mt-1">{scan.waktu}</p>
-                      </div>
+              </div>
+              <div className="divide-y divide-gray-50 max-h-[500px] overflow-y-auto">
+                {recentScans.map((scan) => (
+                  <div key={scan.id} className="px-5 py-3 flex items-center gap-3 hover:bg-gray-50/50 transition-colors">
+                    <Avatar src={scan.foto} size="sm" className="w-9 h-9 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">{scan.name}</p>
+                      <p className="text-xs text-gray-400">{scan.nis} &middot; {scan.kelas}</p>
                     </div>
-                  ))}
-                </div>
-              </CardBody>
-            </Card>
-
-            {/* Quick Stats */}
-            <Card className="border border-divider/50 shadow-sm">
-              <CardHeader>
-                <h3 className="font-bold">Statistik Hari Ini</h3>
-              </CardHeader>
-              <CardBody className="space-y-3">
-                <div className="flex items-center justify-between p-3 bg-success-50 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle size={20} className="text-success" weight="fill" />
-                    <span className="text-sm font-medium">Hadir</span>
+                    <div className="text-right flex-shrink-0">
+                      <Chip size="sm" color={statusColor(scan.status)} variant="flat" className="text-[10px]">
+                        {scan.status}
+                      </Chip>
+                      <p className="text-[10px] text-gray-400 mt-1">{scan.waktu}</p>
+                    </div>
                   </div>
-                  <span className="text-lg font-bold">1,180</span>
-                </div>
-                <div className="flex items-center justify-between p-3 bg-warning-50 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <Clock size={20} className="text-warning" weight="fill" />
-                    <span className="text-sm font-medium">Izin/Sakit</span>
-                  </div>
-                  <span className="text-lg font-bold">45</span>
-                </div>
-                <div className="flex items-center justify-between p-3 bg-danger-50 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <XCircle size={20} className="text-danger" weight="fill" />
-                    <span className="text-sm font-medium">Alpha</span>
-                  </div>
-                  <span className="text-lg font-bold">23</span>
-                </div>
-              </CardBody>
-            </Card>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </div>
