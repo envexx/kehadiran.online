@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@heroui/button";
 import { Chip } from "@heroui/chip";
 import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, useDisclosure } from "@heroui/modal";
@@ -12,68 +12,74 @@ import {
   Lightning,
   Receipt,
   Check,
-  ArrowUp,
-  ArrowDown,
-  WarningCircle
+  ArrowUp
 } from "phosphor-react";
 
 const PLANS = [
   {
     key: "starter",
     name: "Starter",
-    price: 9999,
-    priceLabel: "Rp 9.999",
+    price: 12000,
+    priceLabel: "Rp 12.000",
     period: "/siswa/bulan",
-    desc: "50–100 siswa",
+    desc: "1–100 siswa",
+    range: "1–100",
     icon: Lightning,
     color: "blue" as const,
-    features: ["Maks 100 siswa", "Maks 20 guru", "Maks 10 kelas", "QR Code scan", "Email support", "1.000 notifikasi WA/bulan"],
+    features: ["1–100 siswa", "Maks 20 guru", "Maks 10 kelas", "QR Code scan", "Email support", "1.000 notifikasi WA/bulan"],
   },
   {
     key: "pro",
     name: "Professional",
-    price: 12500,
-    priceLabel: "Rp 12.500",
+    price: 10000,
+    priceLabel: "Rp 10.000",
     period: "/siswa/bulan",
     desc: "101–500 siswa",
+    range: "101–500",
     icon: Rocket,
     color: "blue" as const,
     popular: true,
-    features: ["Maks 500 siswa", "Maks 50 guru", "Maks 30 kelas", "QR + Manual input", "Notifikasi WA real-time", "Laporan lengkap", "Export CSV", "5.000 notifikasi WA/bulan"],
+    features: ["101–500 siswa", "Maks 50 guru", "Maks 30 kelas", "QR + Manual input", "Notifikasi WA real-time", "Laporan lengkap", "Export CSV", "5.000 notifikasi WA/bulan"],
   },
   {
     key: "enterprise",
     name: "Enterprise",
-    price: 15000,
-    priceLabel: "Rp 15.000",
+    price: 8999,
+    priceLabel: "Rp 8.999",
     period: "/siswa/bulan",
     desc: "500+ siswa",
+    range: "500+",
     icon: Crown,
     color: "amber" as const,
-    features: ["Maks 2.000 siswa", "Maks 200 guru", "Maks 100 kelas", "Semua fitur Pro", "Custom domain (+Rp 3jt setup)", "Dedicated account manager", "20.000 notifikasi WA/bulan", "API access"],
+    features: ["500+ siswa", "Maks 200 guru", "Maks 100 kelas", "Semua fitur Pro", "Custom domain (+Rp 3jt setup)", "Dedicated account manager", "20.000 notifikasi WA/bulan", "API access"],
   },
 ];
+
+function getPlanByCount(count: number) {
+  if (count <= 100) return PLANS[0];
+  if (count <= 500) return PLANS[1];
+  return PLANS[2];
+}
 
 export default function BillingPage() {
   const { data: subData, mutate: mutateSub } = useSubscription();
   const { data: invData, mutate: mutateInv } = useInvoices();
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
 
-  const [selectedPlan, setSelectedPlan] = useState<typeof PLANS[0] | null>(null);
   const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">("monthly");
   const [upgrading, setUpgrading] = useState(false);
   const [upgradeError, setUpgradeError] = useState("");
   const [upgradeSuccess, setUpgradeSuccess] = useState(false);
-  const [jumlahSiswa, setJumlahSiswa] = useState(0);
-
-  useEffect(() => {
-    fetch("/api/siswa?limit=1").then(r => r.json()).then(d => { if (d.total != null) setJumlahSiswa(d.total); }).catch(() => {});
-  }, []);
+  const [inputSiswa, setInputSiswa] = useState("");
 
   const currentPlan = subData?.plan || "free_trial";
 
-  const openUpgradeModal = (plan: typeof PLANS[0]) => {
-    setSelectedPlan(plan);
+  // Derived: auto-select plan based on input siswa count
+  const siswaCount = parseInt(inputSiswa) || 0;
+  const selectedPlan = siswaCount > 0 ? getPlanByCount(siswaCount) : null;
+
+  const openUpgradeModal = () => {
+    setInputSiswa("");
     setBillingCycle("monthly");
     setUpgradeError("");
     setUpgradeSuccess(false);
@@ -81,13 +87,13 @@ export default function BillingPage() {
   };
 
   const handleUpgrade = async (onClose: () => void) => {
-    if (!selectedPlan) return;
+    if (!selectedPlan || siswaCount < 1) { setUpgradeError("Masukkan jumlah siswa"); return; }
     setUpgrading(true); setUpgradeError("");
     try {
       const res = await fetch("/api/billing/upgrade", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan: selectedPlan.key, billing_cycle: billingCycle }),
+        body: JSON.stringify({ jumlah_siswa: siswaCount, billing_cycle: billingCycle }),
       });
       const json = await res.json();
       if (!res.ok) { setUpgradeError(json.error || "Gagal upgrade"); setUpgrading(false); return; }
@@ -98,9 +104,6 @@ export default function BillingPage() {
     } catch { setUpgradeError("Terjadi kesalahan"); }
     setUpgrading(false);
   };
-
-  const getPlanIndex = (key: string) => PLANS.findIndex(p => p.key === key);
-  const currentPlanIndex = getPlanIndex(currentPlan);
 
   const invoices: { id: string; date: string; amount: string; status: string; statusColor: "success" | "warning" | "danger" | "default"; method: string }[] =
     invData?.data?.map((inv: { id: string; invoice_number: string; amount: number; status: string; issued_at: string; payment_method: string | null }) => ({
@@ -113,9 +116,9 @@ export default function BillingPage() {
     })) || [];
 
   // Pricing: harga per siswa × jumlah siswa
-  const monthlyTotal = selectedPlan ? selectedPlan.price * jumlahSiswa : 0;
-  const annualTotal = selectedPlan ? selectedPlan.price * jumlahSiswa * 10 : 0; // 10 bulan (2 gratis)
-  const annualDiscount = selectedPlan ? selectedPlan.price * jumlahSiswa * 2 : 0; // 2 bulan gratis
+  const monthlyTotal = selectedPlan ? selectedPlan.price * siswaCount : 0;
+  const annualTotal = selectedPlan ? selectedPlan.price * siswaCount * 10 : 0; // 10 bulan (2 gratis)
+  const annualDiscount = selectedPlan ? selectedPlan.price * siswaCount * 2 : 0; // 2 bulan gratis
 
   return (
     <div className="min-h-screen">
@@ -159,14 +162,14 @@ export default function BillingPage() {
 
         {/* Plans */}
         <div>
-          <h3 className="font-semibold text-gray-900 mb-4">Pilih Paket</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold text-gray-900">Daftar Paket</h3>
+            <p className="text-xs text-gray-400">Paket otomatis dipilih berdasarkan jumlah siswa</p>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {PLANS.map((plan) => {
               const Icon = plan.icon;
               const isCurrent = plan.key === currentPlan;
-              const planIndex = getPlanIndex(plan.key);
-              const isUpgrade = planIndex > currentPlanIndex;
-              const isDowngrade = planIndex < currentPlanIndex && currentPlanIndex >= 0;
               return (
                 <div
                   key={plan.key}
@@ -206,17 +209,9 @@ export default function BillingPage() {
                     <Button size="sm" className="w-full bg-gray-100 text-gray-500 cursor-default font-medium" disabled>
                       Paket Saat Ini
                     </Button>
-                  ) : isUpgrade ? (
-                    <Button size="sm" className="w-full bg-blue-600 text-white font-medium hover:bg-blue-700" startContent={<ArrowUp size={14} weight="bold" />} onPress={() => openUpgradeModal(plan)}>
-                      Upgrade
-                    </Button>
-                  ) : isDowngrade ? (
-                    <Button size="sm" variant="bordered" className="w-full border-gray-200 text-gray-600 font-medium" startContent={<ArrowDown size={14} />} onPress={() => openUpgradeModal(plan)}>
-                      Downgrade
-                    </Button>
                   ) : (
-                    <Button size="sm" className="w-full bg-blue-600 text-white font-medium hover:bg-blue-700" onPress={() => openUpgradeModal(plan)}>
-                      Pilih Paket
+                    <Button size="sm" className="w-full bg-blue-600 text-white font-medium hover:bg-blue-700" startContent={<ArrowUp size={14} weight="bold" />} onPress={openUpgradeModal}>
+                      Upgrade
                     </Button>
                   )}
                 </div>
@@ -259,17 +254,15 @@ export default function BillingPage() {
         </div>
       </div>
 
-      {/* Upgrade/Downgrade Modal */}
+      {/* Upgrade Modal */}
       <Modal isOpen={isOpen} onOpenChange={onOpenChange} size="lg">
         <ModalContent>
           {(onClose) => (
             <>
               <ModalHeader className="border-b border-gray-100">
                 <div>
-                  <h3 className="text-lg font-bold text-gray-900">
-                    {selectedPlan && getPlanIndex(selectedPlan.key) > currentPlanIndex ? "Upgrade" : "Ganti"} Paket
-                  </h3>
-                  <p className="text-sm text-gray-500 font-normal">Konfirmasi perubahan paket langganan</p>
+                  <h3 className="text-lg font-bold text-gray-900">Upgrade Paket</h3>
+                  <p className="text-sm text-gray-500 font-normal">Masukkan jumlah siswa untuk melihat harga</p>
                 </div>
               </ModalHeader>
               <ModalBody className="py-6">
@@ -282,25 +275,35 @@ export default function BillingPage() {
                     <p className="text-sm text-gray-500">Paket Anda telah diubah ke <strong>{selectedPlan?.name}</strong></p>
                   </div>
                 ) : (
-                  <>
+                  <div className="space-y-5">
+                    {/* Siswa count input */}
+                    <div>
+                      <label className="text-sm font-medium text-gray-700 mb-2 block">Jumlah Siswa</label>
+                      <input
+                        type="number"
+                        min={1}
+                        placeholder="Masukkan jumlah siswa..."
+                        value={inputSiswa}
+                        onChange={(e) => setInputSiswa(e.target.value)}
+                        className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-blue-500 focus:outline-none text-lg font-semibold text-gray-900 transition-colors"
+                      />
+                      <div className="flex items-center gap-4 mt-2">
+                        {PLANS.map(p => (
+                          <span key={p.key} className={`text-xs ${selectedPlan?.key === p.key ? "text-blue-600 font-semibold" : "text-gray-400"}`}>
+                            {p.range} siswa = Rp {p.price.toLocaleString("id-ID")}/siswa
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Auto-selected plan */}
                     {selectedPlan && (
-                      <div className="space-y-5">
-                        {/* Plan summary */}
-                        <div className="bg-gray-50 rounded-2xl p-5">
-                          <div className="flex items-center gap-3 mb-3">
-                            {(() => { const Icon = selectedPlan.icon; return <div className={`w-10 h-10 rounded-xl ${selectedPlan.color === "amber" ? "bg-amber-50" : "bg-blue-50"} flex items-center justify-center`}><Icon size={20} weight="fill" className={selectedPlan.color === "amber" ? "text-amber-600" : "text-blue-600"} /></div>; })()}
-                            <div>
-                              <h4 className="font-bold text-gray-900">{selectedPlan.name}</h4>
-                              <p className="text-xs text-gray-400">{selectedPlan.desc}</p>
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-2 gap-3">
-                            {selectedPlan.features.slice(0, 4).map((f, i) => (
-                              <div key={i} className="flex items-center gap-1.5">
-                                <Check size={12} weight="bold" className="text-emerald-500" />
-                                <span className="text-xs text-gray-600">{f}</span>
-                              </div>
-                            ))}
+                      <>
+                        <div className="bg-blue-50 rounded-2xl p-4 flex items-center gap-3">
+                          {(() => { const Icon = selectedPlan.icon; return <div className={`w-10 h-10 rounded-xl ${selectedPlan.color === "amber" ? "bg-amber-100" : "bg-blue-100"} flex items-center justify-center`}><Icon size={20} weight="fill" className={selectedPlan.color === "amber" ? "text-amber-600" : "text-blue-600"} /></div>; })()}
+                          <div className="flex-1">
+                            <p className="text-sm font-semibold text-gray-900">Paket {selectedPlan.name} <Chip size="sm" className="bg-blue-600 text-white text-[10px] ml-1">Otomatis</Chip></p>
+                            <p className="text-xs text-gray-500">{selectedPlan.desc} · Rp {selectedPlan.price.toLocaleString("id-ID")}/siswa/bulan</p>
                           </div>
                         </div>
 
@@ -314,7 +317,7 @@ export default function BillingPage() {
                             >
                               <p className="text-sm font-semibold text-gray-900">Bulanan</p>
                               <p className="text-lg font-bold text-gray-900 mt-1">Rp {monthlyTotal.toLocaleString("id-ID")}</p>
-                              <p className="text-xs text-gray-400">/bulan · {jumlahSiswa} siswa</p>
+                              <p className="text-xs text-gray-400">/bulan · {siswaCount} siswa</p>
                             </button>
                             <button
                               onClick={() => setBillingCycle("annual")}
@@ -325,7 +328,7 @@ export default function BillingPage() {
                               </div>
                               <p className="text-sm font-semibold text-gray-900">Tahunan</p>
                               <p className="text-lg font-bold text-gray-900 mt-1">Rp {annualTotal.toLocaleString("id-ID")}</p>
-                              <p className="text-xs text-gray-400">/tahun · {jumlahSiswa} siswa <span className="text-emerald-600">(hemat Rp {annualDiscount.toLocaleString("id-ID")})</span></p>
+                              <p className="text-xs text-gray-400">/tahun · {siswaCount} siswa <span className="text-emerald-600">(hemat Rp {annualDiscount.toLocaleString("id-ID")})</span></p>
                             </button>
                           </div>
                         </div>
@@ -337,8 +340,8 @@ export default function BillingPage() {
                             <span className="text-sm text-gray-700">Rp {selectedPlan.price.toLocaleString("id-ID")}/siswa/bulan</span>
                           </div>
                           <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm text-gray-500">Jumlah siswa aktif</span>
-                            <span className="text-sm text-gray-700">{jumlahSiswa} siswa</span>
+                            <span className="text-sm text-gray-500">Jumlah siswa</span>
+                            <span className="text-sm text-gray-700">{siswaCount} siswa</span>
                           </div>
                           <div className="flex items-center justify-between mb-2">
                             <span className="text-sm text-gray-500">Periode</span>
@@ -358,24 +361,13 @@ export default function BillingPage() {
                             </span>
                           </div>
                         </div>
-
-                        {/* Warning for downgrade */}
-                        {getPlanIndex(selectedPlan.key) < currentPlanIndex && (
-                          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
-                            <WarningCircle size={20} className="text-amber-600 flex-shrink-0 mt-0.5" weight="fill" />
-                            <div>
-                              <p className="text-sm font-medium text-amber-800">Perhatian</p>
-                              <p className="text-xs text-amber-700 mt-1">Downgrade akan mengurangi kuota siswa, guru, dan kelas. Pastikan data Anda tidak melebihi batas paket baru.</p>
-                            </div>
-                          </div>
-                        )}
-
-                        {upgradeError && (
-                          <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl px-4 py-2">{upgradeError}</div>
-                        )}
-                      </div>
+                      </>
                     )}
-                  </>
+
+                    {upgradeError && (
+                      <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl px-4 py-2">{upgradeError}</div>
+                    )}
+                  </div>
                 )}
               </ModalBody>
               {!upgradeSuccess && (
@@ -385,9 +377,10 @@ export default function BillingPage() {
                     color="primary"
                     className="bg-blue-600 font-medium"
                     isLoading={upgrading}
+                    isDisabled={siswaCount < 1}
                     onPress={() => handleUpgrade(onClose)}
                   >
-                    {selectedPlan && getPlanIndex(selectedPlan.key) > currentPlanIndex ? "Konfirmasi Upgrade" : "Konfirmasi Perubahan"}
+                    Konfirmasi Upgrade
                   </Button>
                 </ModalFooter>
               )}

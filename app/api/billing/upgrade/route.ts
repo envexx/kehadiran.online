@@ -2,47 +2,37 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireTenantAuth } from "@/lib/auth";
 
-// Harga per siswa per bulan
-const PLAN_CONFIG: Record<string, { pricePerSiswa: number; max_siswa: number; max_guru: number; max_kelas: number; sms_quota: number; api_calls: number; storage_gb: number }> = {
-  starter: { pricePerSiswa: 9999, max_siswa: 100, max_guru: 20, max_kelas: 10, sms_quota: 1000, api_calls: 10000, storage_gb: 1 },
-  pro: { pricePerSiswa: 12500, max_siswa: 500, max_guru: 50, max_kelas: 30, sms_quota: 5000, api_calls: 50000, storage_gb: 5 },
-  enterprise: { pricePerSiswa: 15000, max_siswa: 2000, max_guru: 200, max_kelas: 100, sms_quota: 20000, api_calls: 200000, storage_gb: 20 },
+// Harga per siswa per bulan — plan ditentukan otomatis berdasarkan jumlah siswa
+const PLAN_CONFIG: Record<string, { pricePerSiswa: number; minSiswa: number; maxSiswa: number; max_guru: number; max_kelas: number; sms_quota: number; api_calls: number; storage_gb: number }> = {
+  starter: { pricePerSiswa: 12000, minSiswa: 1, maxSiswa: 100, max_guru: 20, max_kelas: 10, sms_quota: 1000, api_calls: 10000, storage_gb: 1 },
+  pro: { pricePerSiswa: 10000, minSiswa: 101, maxSiswa: 500, max_guru: 50, max_kelas: 30, sms_quota: 5000, api_calls: 50000, storage_gb: 5 },
+  enterprise: { pricePerSiswa: 8999, minSiswa: 501, maxSiswa: 5000, max_guru: 200, max_kelas: 100, sms_quota: 20000, api_calls: 200000, storage_gb: 20 },
 };
+
+function getPlanByCount(count: number): string {
+  if (count <= 100) return "starter";
+  if (count <= 500) return "pro";
+  return "enterprise";
+}
 
 export async function POST(request: NextRequest) {
   try {
     const { tenantId } = await requireTenantAuth();
     const body = await request.json();
-    const { plan, billing_cycle } = body;
+    const { jumlah_siswa, billing_cycle } = body;
 
-    if (!plan || !PLAN_CONFIG[plan]) {
-      return NextResponse.json({ error: "Plan tidak valid" }, { status: 400 });
+    if (!jumlah_siswa || jumlah_siswa < 1) {
+      return NextResponse.json({ error: "Jumlah siswa harus minimal 1" }, { status: 400 });
     }
 
+    // Auto-determine plan based on jumlah siswa
+    const plan = getPlanByCount(jumlah_siswa);
     const config = PLAN_CONFIG[plan];
     const cycle = billing_cycle || "monthly";
 
-    // Count actual active students for this tenant
-    const jumlahSiswa = await prisma.siswa.count({
-      where: { tenant_id: tenantId, status: "aktif" },
-    });
-
-    if (jumlahSiswa === 0) {
-      return NextResponse.json({ error: "Belum ada siswa aktif. Tambahkan siswa terlebih dahulu." }, { status: 400 });
-    }
-
     // Harga = harga per siswa × jumlah siswa × bulan
     const months = cycle === "annual" ? 10 : 1; // annual = 10 bulan (2 bulan gratis)
-    const totalAmount = config.pricePerSiswa * jumlahSiswa * months;
-
-    // Get current subscription
-    const currentSub = await prisma.subscription.findUnique({
-      where: { tenant_id: tenantId },
-    });
-
-    if (currentSub && currentSub.plan === plan) {
-      return NextResponse.json({ error: "Anda sudah menggunakan paket ini" }, { status: 400 });
-    }
+    const totalAmount = config.pricePerSiswa * jumlah_siswa * months;
 
     const now = new Date();
     const endDate = new Date(now);
@@ -76,11 +66,11 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Update feature quotas
+    // Update feature quotas — max_siswa = jumlah yang diinput user
     await prisma.featureQuota.upsert({
       where: { tenant_id: tenantId },
       update: {
-        max_siswa: config.max_siswa,
+        max_siswa: jumlah_siswa,
         max_guru: config.max_guru,
         max_kelas: config.max_kelas,
         sms_quota: config.sms_quota,
@@ -89,7 +79,7 @@ export async function POST(request: NextRequest) {
       },
       create: {
         tenant_id: tenantId,
-        max_siswa: config.max_siswa,
+        max_siswa: jumlah_siswa,
         max_guru: config.max_guru,
         max_kelas: config.max_kelas,
         sms_quota: config.sms_quota,
@@ -111,7 +101,7 @@ export async function POST(request: NextRequest) {
         status: "sent",
         issued_at: now,
         due_at: dueDate,
-        notes: `Upgrade ke paket ${plan} (${cycle}) - ${jumlahSiswa} siswa × Rp ${config.pricePerSiswa.toLocaleString("id-ID")}/siswa`,
+        notes: `Paket ${plan.charAt(0).toUpperCase() + plan.slice(1)} (${cycle}) - ${jumlah_siswa} siswa × Rp ${config.pricePerSiswa.toLocaleString("id-ID")}/siswa`,
       },
     });
 
@@ -123,7 +113,7 @@ export async function POST(request: NextRequest) {
         billing_cycle: subscription.billing_cycle,
         amount: Number(subscription.amount),
         pricePerSiswa: config.pricePerSiswa,
-        jumlahSiswa,
+        jumlahSiswa: jumlah_siswa,
         started_at: subscription.started_at,
         ended_at: subscription.ended_at,
       },
