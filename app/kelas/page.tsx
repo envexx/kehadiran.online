@@ -37,6 +37,7 @@ export default function KelasPage() {
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
+  const [filterTA, setFilterTA] = useState("");
 
   // Form state
   const [fNama, setFNama] = useState("");
@@ -61,10 +62,11 @@ export default function KelasPage() {
       const sm = settingsData.data.find((s: { key: string; value: string }) => s.key === "semester");
       if (ta && !fTahunAjaran) setFTahunAjaran(ta.value);
       if (sm && !fSemester) setFSemester(sm.value);
+      if (ta && !filterTA) setFilterTA(ta.value);
     }
   }, [settingsData]);
 
-  const { data: kelasData, isLoading, mutate } = useKelas();
+  const { data: kelasData, isLoading, mutate } = useKelas({ tahunAjaran: filterTA || undefined });
   const { data: statsData, mutate: mutateStats } = useKelasStats();
 
   const resetForm = () => { setFNama(""); setFTingkat(""); setFJurusan(""); setFKapasitas("40"); setFTahunAjaran(""); setFSemester(""); setFWaliKelasId(""); setFormError(""); };
@@ -131,12 +133,18 @@ export default function KelasPage() {
             <Select
               placeholder="Tahun Ajaran"
               size="sm"
-              defaultSelectedKeys={["2024"]}
+              selectedKeys={filterTA ? [filterTA] : []}
+              onChange={(e) => setFilterTA(e.target.value)}
               className="w-[160px]"
               classNames={{ trigger: "bg-white border border-gray-200 shadow-none h-9 min-h-9" }}
             >
-              <SelectItem key="2024">2024/2025</SelectItem>
-              <SelectItem key="2023">2023/2024</SelectItem>
+              {(() => {
+                const y = new Date().getFullYear();
+                return [0, -1, -2, -3].map(offset => {
+                  const val = `${y + offset}/${y + offset + 1}`;
+                  return <SelectItem key={val}>{val}</SelectItem>;
+                });
+              })()}
             </Select>
             <Button size="sm" color="primary" className="bg-blue-600 font-medium" startContent={<Plus size={14} weight="bold" />} onPress={onOpen}>
               Tambah Kelas

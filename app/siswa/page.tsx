@@ -36,6 +36,7 @@ export default function SiswaPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+  const [filterKelas, setFilterKelas] = useState("");
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
   const [importing, setImporting] = useState(false);
@@ -60,7 +61,7 @@ export default function SiswaPage() {
     fetch("/api/kelas").then(r => r.json()).then(d => { if (d.data) setKelasList(d.data); }).catch(() => {});
   }, []);
 
-  const { data: siswaData, isLoading, mutate } = useSiswa({ search, page, limit: 20 });
+  const { data: siswaData, isLoading, mutate } = useSiswa({ search, page, limit: 20, kelasId: filterKelas || undefined });
   const { data: statsData, isLoading: statsLoading, mutate: mutateStats } = useSiswaStats();
 
   const resetForm = () => { setFNama(""); setFNisn(""); setFNis(""); setFJk(""); setFKelasId(""); setFTempatLahir(""); setFTglLahir(""); setFNamaAyah(""); setFWaAyah(""); setFNamaIbu(""); setFWaIbu(""); setFormError(""); };
@@ -188,15 +189,14 @@ export default function SiswaPage() {
               <Select
                 placeholder="Semua Kelas"
                 size="sm"
-                className="max-w-[150px]"
+                className="max-w-[180px]"
+                selectedKeys={filterKelas ? [filterKelas] : []}
+                onChange={(e) => { setFilterKelas(e.target.value); setPage(1); }}
                 classNames={{
                   trigger: "bg-gray-50 border-0 shadow-none h-9 min-h-9",
                 }}
               >
-                <SelectItem key="12rpl1">XII RPL 1</SelectItem>
-                <SelectItem key="12rpl2">XII RPL 2</SelectItem>
-                <SelectItem key="11rpl1">XI RPL 1</SelectItem>
-                <SelectItem key="11rpl2">XI RPL 2</SelectItem>
+                {kelasList.map((k) => <SelectItem key={k.id}>{k.nama_kelas}</SelectItem>)}
               </Select>
             </div>
             <div className="flex gap-2">
