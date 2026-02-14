@@ -33,6 +33,7 @@ import {
 export default function SiswaPage() {
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
   const { isOpen: isImportOpen, onOpen: onImportOpen, onOpenChange: onImportOpenChange } = useDisclosure();
+  const { isOpen: isEditOpen, onOpen: onEditOpen, onOpenChange: onEditOpenChange } = useDisclosure();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -41,6 +42,8 @@ export default function SiswaPage() {
   const [formError, setFormError] = useState("");
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<{ created: number; skipped: number; errors: string[] } | null>(null);
+  const [editId, setEditId] = useState("");
+  const [deleting, setDeleting] = useState<string | null>(null);
 
   // Form state
   const [fNama, setFNama] = useState("");
@@ -64,7 +67,52 @@ export default function SiswaPage() {
   const { data: siswaData, isLoading, mutate } = useSiswa({ search, page, limit: 20, kelasId: filterKelas || undefined });
   const { data: statsData, isLoading: statsLoading, mutate: mutateStats } = useSiswaStats();
 
-  const resetForm = () => { setFNama(""); setFNisn(""); setFNis(""); setFJk(""); setFKelasId(""); setFTempatLahir(""); setFTglLahir(""); setFNamaAyah(""); setFWaAyah(""); setFNamaIbu(""); setFWaIbu(""); setFormError(""); };
+  const resetForm = () => { setFNama(""); setFNisn(""); setFNis(""); setFJk(""); setFKelasId(""); setFTempatLahir(""); setFTglLahir(""); setFNamaAyah(""); setFWaAyah(""); setFNamaIbu(""); setFWaIbu(""); setFormError(""); setEditId(""); };
+
+  const openEdit = (s: { id: string; nisn: string; nis?: string; nama_lengkap: string; jenis_kelamin: string; kelas_id: string }) => {
+    setEditId(s.id);
+    setFNama(s.nama_lengkap);
+    setFNisn(s.nisn);
+    setFNis(s.nis || "");
+    setFJk(s.jenis_kelamin);
+    setFKelasId(s.kelas_id);
+    setFTempatLahir(""); setFTglLahir(""); setFNamaAyah(""); setFWaAyah(""); setFNamaIbu(""); setFWaIbu("");
+    setFormError("");
+    onEditOpen();
+  };
+
+  const handleUpdate = async (onClose: () => void) => {
+    if (!fNama.trim() || !fNisn.trim() || !fJk || !fKelasId) { setFormError("Nama, NISN, jenis kelamin, dan kelas wajib diisi"); return; }
+    setSaving(true); setFormError("");
+    try {
+      const res = await fetch(`/api/siswa/${editId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nama_lengkap: fNama, nisn: fNisn, nis: fNis || null, jenis_kelamin: fJk, kelas_id: fKelasId,
+          tempat_lahir: fTempatLahir || null, tanggal_lahir: fTglLahir || null,
+          nama_ayah: fNamaAyah || null, nomor_wa_ayah: fWaAyah || null,
+          nama_ibu: fNamaIbu || null, nomor_wa_ibu: fWaIbu || null,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) { setFormError(json.error || "Gagal menyimpan"); setSaving(false); return; }
+      mutate(); mutateStats(); resetForm(); onClose();
+    } catch { setFormError("Terjadi kesalahan"); }
+    setSaving(false);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Yakin ingin menghapus siswa ini?")) return;
+    setDeleting(id);
+    try {
+      const res = await fetch(`/api/siswa/${id}`, { method: "DELETE" });
+      const json = await res.json();
+      if (!res.ok) { alert(json.error || "Gagal menghapus"); setDeleting(null); return; }
+      mutate(); mutateStats();
+    } catch { alert("Terjadi kesalahan"); }
+    setDeleting(null);
+  };
 
   const handleSave = async (onClose: () => void) => {
     if (!fNama.trim() || !fNisn.trim() || !fJk || !fKelasId) { setFormError("Nama, NISN, jenis kelamin, dan kelas wajib diisi"); return; }
@@ -246,7 +294,7 @@ export default function SiswaPage() {
                 <TableColumn width={100}>Aksi</TableColumn>
               </TableHeader>
               <TableBody>
-                {students.map((student: { id: string; nis: string; nisn: string; nama_lengkap: string; jenis_kelamin: string; kelas: string; nomor_wa_ayah: string; nomor_wa_ibu: string; persentase_kehadiran: number }) => (
+                {students.map((student: { id: string; nis: string; nisn: string; nama_lengkap: string; jenis_kelamin: string; kelas: string; kelas_id: string; nomor_wa_ayah: string; nomor_wa_ibu: string; persentase_kehadiran: number }) => (
                   <TableRow key={student.id} className="hover:bg-gray-50/50">
                     <TableCell>
                       <div className="flex items-center gap-3">
@@ -297,10 +345,10 @@ export default function SiswaPage() {
                         <Button isIconOnly size="sm" variant="light" className="text-gray-400 hover:text-blue-600">
                           <Eye size={16} />
                         </Button>
-                        <Button isIconOnly size="sm" variant="light" className="text-gray-400 hover:text-amber-600">
+                        <Button isIconOnly size="sm" variant="light" className="text-gray-400 hover:text-amber-600" onPress={() => openEdit(student)}>
                           <PencilSimple size={16} />
                         </Button>
-                        <Button isIconOnly size="sm" variant="light" className="text-gray-400 hover:text-red-500">
+                        <Button isIconOnly size="sm" variant="light" className="text-gray-400 hover:text-red-500" isLoading={deleting === student.id} onPress={() => handleDelete(student.id)}>
                           <Trash size={16} />
                         </Button>
                       </div>
@@ -470,7 +518,58 @@ export default function SiswaPage() {
           )}
         </ModalContent>
       </Modal>
+
+      {/* Edit Student Modal */}
+      <Modal isOpen={isEditOpen} onOpenChange={onEditOpenChange} size="2xl" scrollBehavior="inside">
+        <ModalContent>
+          {(onClose) => (
+            <>
+              <ModalHeader className="border-b border-gray-100">
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">Edit Siswa</h3>
+                  <p className="text-sm text-gray-500 font-normal">Ubah data siswa di bawah ini</p>
+                </div>
+              </ModalHeader>
+              <ModalBody className="py-6">
+                {formError && <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl px-4 py-2 mb-2">{formError}</div>}
+                <div className="space-y-6">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-700 mb-3">Data Siswa</p>
+                    <div className="grid grid-cols-2 gap-4">
+                      <Input label="Nama Lengkap" placeholder="Masukkan nama lengkap" size="sm" isRequired value={fNama} onValueChange={setFNama} />
+                      <Input label="NISN" placeholder="Nomor Induk Siswa Nasional" size="sm" isRequired value={fNisn} onValueChange={setFNisn} />
+                      <Input label="NIS" placeholder="Nomor Induk Siswa" size="sm" value={fNis} onValueChange={setFNis} />
+                      <Select label="Jenis Kelamin" placeholder="Pilih" size="sm" isRequired selectedKeys={fJk ? [fJk] : []} onChange={(e) => setFJk(e.target.value)}>
+                        <SelectItem key="L">Laki-laki</SelectItem>
+                        <SelectItem key="P">Perempuan</SelectItem>
+                      </Select>
+                      <Select label="Kelas" placeholder="Pilih kelas" size="sm" isRequired selectedKeys={fKelasId ? [fKelasId] : []} onChange={(e) => setFKelasId(e.target.value)}>
+                        {kelasList.map((k) => <SelectItem key={k.id}>{k.nama_kelas}</SelectItem>)}
+                      </Select>
+                      <Input label="Tempat Lahir" placeholder="Kota kelahiran" size="sm" value={fTempatLahir} onValueChange={setFTempatLahir} />
+                      <Input label="Tanggal Lahir" type="date" size="sm" value={fTglLahir} onValueChange={setFTglLahir} />
+                    </div>
+                  </div>
+                  <div className="h-px bg-gray-100" />
+                  <div>
+                    <p className="text-sm font-semibold text-gray-700 mb-3">Data Orang Tua</p>
+                    <div className="grid grid-cols-2 gap-4">
+                      <Input label="Nama Ayah" placeholder="Nama lengkap ayah" size="sm" value={fNamaAyah} onValueChange={setFNamaAyah} />
+                      <Input label="No. WhatsApp Ayah" placeholder="6281xxxxxxxxx" size="sm" value={fWaAyah} onValueChange={setFWaAyah} />
+                      <Input label="Nama Ibu" placeholder="Nama lengkap ibu" size="sm" value={fNamaIbu} onValueChange={setFNamaIbu} />
+                      <Input label="No. WhatsApp Ibu" placeholder="6281xxxxxxxxx" size="sm" value={fWaIbu} onValueChange={setFWaIbu} />
+                    </div>
+                  </div>
+                </div>
+              </ModalBody>
+              <ModalFooter className="border-t border-gray-100">
+                <Button variant="bordered" className="border-gray-200" onPress={() => { resetForm(); onClose(); }}>Batal</Button>
+                <Button color="primary" className="bg-blue-600 font-medium" isLoading={saving} onPress={() => handleUpdate(onClose)}>Simpan Perubahan</Button>
+              </ModalFooter>
+            </>
+          )}
+        </ModalContent>
+      </Modal>
     </div>
   );
 }
-

@@ -27,9 +27,12 @@ import {
 
 export default function GuruPage() {
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
+  const { isOpen: isEditOpen, onOpen: onEditOpen, onOpenChange: onEditOpenChange } = useDisclosure();
   const [search, setSearch] = useState("");
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
+  const [editId, setEditId] = useState("");
+  const [deleting, setDeleting] = useState<string | null>(null);
 
   // Form state
   const [fNama, setFNama] = useState("");
@@ -41,7 +44,46 @@ export default function GuruPage() {
   const { data: guruData, isLoading, mutate } = useGuru({ search });
   const { data: statsData, mutate: mutateStats } = useGuruStats();
 
-  const resetForm = () => { setFNama(""); setFNip(""); setFEmail(""); setFTelp(""); setFWa(""); setFormError(""); };
+  const resetForm = () => { setFNama(""); setFNip(""); setFEmail(""); setFTelp(""); setFWa(""); setFormError(""); setEditId(""); };
+
+  const openEdit = (guru: { id: string; nama_guru: string; nip: string; email: string; nomor_telepon: string; nomor_wa?: string }) => {
+    setEditId(guru.id);
+    setFNama(guru.nama_guru);
+    setFNip(guru.nip || "");
+    setFEmail(guru.email || "");
+    setFTelp(guru.nomor_telepon || "");
+    setFWa("");
+    setFormError("");
+    onEditOpen();
+  };
+
+  const handleUpdate = async (onClose: () => void) => {
+    if (!fNama.trim()) { setFormError("Nama guru wajib diisi"); return; }
+    setSaving(true); setFormError("");
+    try {
+      const res = await fetch(`/api/guru/${editId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nama_guru: fNama, nip: fNip || null, email: fEmail || null, nomor_telepon: fTelp || null, nomor_wa: fWa || null }),
+      });
+      const json = await res.json();
+      if (!res.ok) { setFormError(json.error || "Gagal menyimpan"); setSaving(false); return; }
+      mutate(); mutateStats(); resetForm(); onClose();
+    } catch { setFormError("Terjadi kesalahan"); }
+    setSaving(false);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Yakin ingin menghapus guru ini?")) return;
+    setDeleting(id);
+    try {
+      const res = await fetch(`/api/guru/${id}`, { method: "DELETE" });
+      const json = await res.json();
+      if (!res.ok) { alert(json.error || "Gagal menghapus"); setDeleting(null); return; }
+      mutate(); mutateStats();
+    } catch { alert("Terjadi kesalahan"); }
+    setDeleting(null);
+  };
 
   const handleSave = async (onClose: () => void) => {
     if (!fNama.trim()) { setFormError("Nama guru wajib diisi"); return; }
@@ -181,10 +223,10 @@ export default function GuruPage() {
                         <Button isIconOnly size="sm" variant="light" className="text-gray-400 hover:text-blue-600">
                           <Eye size={16} />
                         </Button>
-                        <Button isIconOnly size="sm" variant="light" className="text-gray-400 hover:text-amber-600">
+                        <Button isIconOnly size="sm" variant="light" className="text-gray-400 hover:text-amber-600" onPress={() => openEdit(teacher)}>
                           <PencilSimple size={16} />
                         </Button>
-                        <Button isIconOnly size="sm" variant="light" className="text-gray-400 hover:text-red-500">
+                        <Button isIconOnly size="sm" variant="light" className="text-gray-400 hover:text-red-500" isLoading={deleting === teacher.id} onPress={() => handleDelete(teacher.id)}>
                           <Trash size={16} />
                         </Button>
                       </div>
@@ -226,6 +268,36 @@ export default function GuruPage() {
               <ModalFooter className="border-t border-gray-100">
                 <Button variant="bordered" className="border-gray-200" onPress={() => { resetForm(); onClose(); }}>Batal</Button>
                 <Button color="primary" className="bg-blue-600 font-medium" isLoading={saving} onPress={() => handleSave(onClose)}>Simpan Guru</Button>
+              </ModalFooter>
+            </>
+          )}
+        </ModalContent>
+      </Modal>
+
+      {/* Edit Teacher Modal */}
+      <Modal isOpen={isEditOpen} onOpenChange={onEditOpenChange} size="xl" scrollBehavior="inside">
+        <ModalContent>
+          {(onClose) => (
+            <>
+              <ModalHeader className="border-b border-gray-100">
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">Edit Guru</h3>
+                  <p className="text-sm text-gray-500 font-normal">Ubah data guru di bawah ini</p>
+                </div>
+              </ModalHeader>
+              <ModalBody className="py-6">
+                {formError && <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl px-4 py-2 mb-2">{formError}</div>}
+                <div className="grid grid-cols-2 gap-4">
+                  <Input label="Nama Lengkap" placeholder="Nama lengkap guru" size="sm" isRequired className="col-span-2" value={fNama} onValueChange={setFNama} />
+                  <Input label="NIP" placeholder="Nomor Induk Pegawai" size="sm" value={fNip} onValueChange={setFNip} />
+                  <Input label="Email" placeholder="email@sekolah.sch.id" type="email" size="sm" value={fEmail} onValueChange={setFEmail} />
+                  <Input label="Nomor Telepon" placeholder="08xxxxxxxxxx" size="sm" value={fTelp} onValueChange={setFTelp} />
+                  <Input label="Nomor WhatsApp" placeholder="6281xxxxxxxxx" size="sm" value={fWa} onValueChange={setFWa} />
+                </div>
+              </ModalBody>
+              <ModalFooter className="border-t border-gray-100">
+                <Button variant="bordered" className="border-gray-200" onPress={() => { resetForm(); onClose(); }}>Batal</Button>
+                <Button color="primary" className="bg-blue-600 font-medium" isLoading={saving} onPress={() => handleUpdate(onClose)}>Simpan Perubahan</Button>
               </ModalFooter>
             </>
           )}

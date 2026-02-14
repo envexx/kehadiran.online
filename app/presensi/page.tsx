@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@heroui/button";
 import { Input } from "@heroui/input";
 import { Avatar } from "@heroui/avatar";
@@ -25,8 +25,20 @@ import {
 export default function PresensiPage() {
   const [cameraActive, setCameraActive] = useState(false);
   const [selectedTab, setSelectedTab] = useState("qr");
+  const [kelasList, setKelasList] = useState<{id:string;nama_kelas:string}[]>([]);
+  const [manualKelas, setManualKelas] = useState("");
+  const [manualStatus, setManualStatus] = useState("");
+  const [manualSearch, setManualSearch] = useState("");
+  const [manualKeterangan, setManualKeterangan] = useState("");
+  const [manualSaving, setManualSaving] = useState(false);
 
-  const { data: recentData } = usePresensiStats();
+  const { data: statsData } = usePresensiStats();
+  const [recentScans, setRecentScans] = useState<{ id: string; nama: string; kelas: string; waktu: string; status: string }[]>([]);
+
+  useEffect(() => {
+    fetch("/api/kelas").then(r => r.json()).then(d => { if (d.data) setKelasList(d.data); }).catch(() => {});
+    fetch("/api/presensi/recent?limit=20").then(r => r.json()).then(d => { if (d.data) setRecentScans(d.data); }).catch(() => {});
+  }, []);
 
   const currentDate = new Date().toLocaleDateString('id-ID', { 
     weekday: 'long', 
@@ -39,8 +51,6 @@ export default function PresensiPage() {
     hour: '2-digit',
     minute: '2-digit'
   });
-
-  const recentScans: { id: string; name: string; nis: string; kelas: string; waktu: string; status: string; foto: string }[] = [];
 
   const statusColor = (status: string) => {
     switch (status) {
@@ -166,14 +176,11 @@ export default function PresensiPage() {
                     />
                     
                     <div className="grid grid-cols-2 gap-4">
-                      <Select label="Kelas" placeholder="Pilih kelas" size="lg" classNames={{ trigger: "bg-gray-50 border border-gray-200 shadow-none" }}>
-                        <SelectItem key="12rpl1">XII RPL 1</SelectItem>
-                        <SelectItem key="12rpl2">XII RPL 2</SelectItem>
-                        <SelectItem key="11rpl1">XI RPL 1</SelectItem>
-                        <SelectItem key="11rpl2">XI RPL 2</SelectItem>
+                      <Select label="Kelas" placeholder="Pilih kelas" size="lg" selectedKeys={manualKelas ? [manualKelas] : []} onChange={(e) => setManualKelas(e.target.value)} classNames={{ trigger: "bg-gray-50 border border-gray-200 shadow-none" }}>
+                        {kelasList.map((k) => <SelectItem key={k.id}>{k.nama_kelas}</SelectItem>)}
                       </Select>
                       
-                      <Select label="Status" placeholder="Pilih status" size="lg" classNames={{ trigger: "bg-gray-50 border border-gray-200 shadow-none" }}>
+                      <Select label="Status" placeholder="Pilih status" size="lg" selectedKeys={manualStatus ? [manualStatus] : []} onChange={(e) => setManualStatus(e.target.value)} classNames={{ trigger: "bg-gray-50 border border-gray-200 shadow-none" }}>
                         <SelectItem key="hadir">Hadir</SelectItem>
                         <SelectItem key="terlambat">Terlambat</SelectItem>
                         <SelectItem key="izin">Izin</SelectItem>
@@ -186,12 +193,14 @@ export default function PresensiPage() {
                       label="Keterangan"
                       placeholder="Tambahkan keterangan jika diperlukan (opsional)"
                       size="lg"
+                      value={manualKeterangan}
+                      onValueChange={setManualKeterangan}
                       classNames={{
                         inputWrapper: "bg-gray-50 border border-gray-200 shadow-none",
                       }}
                     />
 
-                    <Button color="primary" size="lg" className="w-full bg-blue-600 font-medium">
+                    <Button color="primary" size="lg" className="w-full bg-blue-600 font-medium" isLoading={manualSaving}>
                       Simpan Presensi
                     </Button>
                   </div>
@@ -208,21 +217,21 @@ export default function PresensiPage() {
                 <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center mx-auto mb-2">
                   <CheckCircle size={16} className="text-emerald-600" weight="fill" />
                 </div>
-                <p className="text-xl font-bold text-gray-900">1,180</p>
+                <p className="text-xl font-bold text-gray-900">{statsData ? (statsData.hadir + statsData.terlambat).toLocaleString() : "—"}</p>
                 <p className="text-[10px] text-gray-400">Hadir</p>
               </div>
               <div className="bg-white rounded-2xl border border-gray-100 p-4 text-center">
                 <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center mx-auto mb-2">
                   <Clock size={16} className="text-amber-600" weight="fill" />
                 </div>
-                <p className="text-xl font-bold text-gray-900">45</p>
+                <p className="text-xl font-bold text-gray-900">{statsData ? (statsData.izin + statsData.sakit).toLocaleString() : "—"}</p>
                 <p className="text-[10px] text-gray-400">Izin/Sakit</p>
               </div>
               <div className="bg-white rounded-2xl border border-gray-100 p-4 text-center">
                 <div className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center mx-auto mb-2">
                   <XCircle size={16} className="text-red-500" weight="fill" />
                 </div>
-                <p className="text-xl font-bold text-gray-900">23</p>
+                <p className="text-xl font-bold text-gray-900">{statsData ? statsData.alpha.toLocaleString() : "—"}</p>
                 <p className="text-[10px] text-gray-400">Alpha</p>
               </div>
             </div>
@@ -242,12 +251,16 @@ export default function PresensiPage() {
                 </Chip>
               </div>
               <div className="divide-y divide-gray-50 max-h-[500px] overflow-y-auto">
-                {recentScans.map((scan) => (
+                {recentScans.length === 0 ? (
+                  <div className="px-5 py-8 text-center">
+                    <p className="text-sm text-gray-400">Belum ada data presensi hari ini</p>
+                  </div>
+                ) : recentScans.map((scan) => (
                   <div key={scan.id} className="px-5 py-3 flex items-center gap-3 hover:bg-gray-50/50 transition-colors">
-                    <Avatar src={scan.foto} size="sm" className="w-9 h-9 flex-shrink-0" />
+                    <Avatar name={scan.nama} size="sm" className="w-9 h-9 flex-shrink-0" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">{scan.name}</p>
-                      <p className="text-xs text-gray-400">{scan.nis} &middot; {scan.kelas}</p>
+                      <p className="text-sm font-medium text-gray-900 truncate">{scan.nama}</p>
+                      <p className="text-xs text-gray-400">{scan.kelas}</p>
                     </div>
                     <div className="text-right flex-shrink-0">
                       <Chip size="sm" color={statusColor(scan.status)} variant="flat" className="text-[10px]">
