@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@heroui/button";
 import { Input } from "@heroui/input";
 import { Avatar } from "@heroui/avatar";
@@ -10,7 +10,6 @@ import { Tabs, Tab } from "@heroui/tabs";
 import { TopBar } from "@/components/top-bar";
 import { usePresensiStats } from "@/hooks/use-swr-hooks";
 import { 
-  MagnifyingGlass, 
   QrCode,
   Camera,
   CheckCircle,
@@ -18,9 +17,18 @@ import {
   Clock,
   PencilSimple,
   WifiHigh,
-  WifiSlash,
-  ArrowClockwise
+  ArrowClockwise,
+  SpeakerHigh
 } from "phosphor-react";
+
+interface ScanResult {
+  type: "success" | "error" | "warning";
+  nama?: string;
+  kelas?: string;
+  status?: string;
+  waktu?: string;
+  message?: string;
+}
 
 export default function PresensiPage() {
   const [cameraActive, setCameraActive] = useState(false);
@@ -31,14 +39,26 @@ export default function PresensiPage() {
   const [manualSearch, setManualSearch] = useState("");
   const [manualKeterangan, setManualKeterangan] = useState("");
   const [manualSaving, setManualSaving] = useState(false);
+  const [scanResult, setScanResult] = useState<ScanResult | null>(null);
+  const [scanCount, setScanCount] = useState(0);
+  const [processing, setProcessing] = useState(false);
 
-  const { data: statsData } = usePresensiStats();
+  const scannerRef = useRef<HTMLDivElement>(null);
+  const html5QrRef = useRef<unknown>(null);
+  const lastScannedRef = useRef<string>("");
+  const cooldownRef = useRef(false);
+
+  const { data: statsData, mutate: mutateStats } = usePresensiStats();
   const [recentScans, setRecentScans] = useState<{ id: string; nama: string; kelas: string; waktu: string; status: string }[]>([]);
+
+  const refreshRecent = useCallback(() => {
+    fetch("/api/presensi/recent?limit=20").then(r => r.json()).then(d => { if (d.data) setRecentScans(d.data); }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     fetch("/api/kelas").then(r => r.json()).then(d => { if (d.data) setKelasList(d.data); }).catch(() => {});
-    fetch("/api/presensi/recent?limit=20").then(r => r.json()).then(d => { if (d.data) setRecentScans(d.data); }).catch(() => {});
-  }, []);
+    refreshRecent();
+  }, [refreshRecent]);
 
   const currentDate = new Date().toLocaleDateString('id-ID', { 
     weekday: 'long', 
@@ -59,6 +79,132 @@ export default function PresensiPage() {
       case "Alpha": return "danger";
       default: return "default";
     }
+  };
+
+  const handleQrScan = useCallback(async (decodedText: string) => {
+    if (cooldownRef.current || processing) return;
+    if (decodedText === lastScannedRef.current) return;
+
+    cooldownRef.current = true;
+    lastScannedRef.current = decodedText;
+    setProcessing(true);
+    setScanResult(null);
+
+    try {
+      // QR content could be siswa_id directly or JSON
+      let siswaId = decodedText;
+      try {
+        const parsed = JSON.parse(decodedText);
+        if (parsed.siswa_id) siswaId = parsed.siswa_id;
+        else if (parsed.id) siswaId = parsed.id;
+      } catch {
+        // Not JSON, use raw text as siswa_id
+      }
+
+      const res = await fetch("/api/presensi/scan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ siswa_id: siswaId }),
+      });
+      const json = await res.json();
+
+      if (res.ok && json.success) {
+        setScanResult({
+          type: "success",
+          nama: json.data.nama,
+          kelas: json.data.kelas,
+          status: json.data.status,
+          waktu: json.data.waktu,
+        });
+        setScanCount(prev => prev + 1);
+        mutateStats();
+        refreshRecent();
+      } else if (res.status === 409) {
+        setScanResult({
+          type: "warning",
+          nama: json.nama,
+          kelas: json.kelas,
+          message: json.error,
+        });
+      } else {
+        setScanResult({
+          type: "error",
+          message: json.error || "Gagal memproses QR Code",
+        });
+      }
+    } catch {
+      setScanResult({ type: "error", message: "Terjadi kesalahan jaringan" });
+    }
+
+    setProcessing(false);
+    setTimeout(() => {
+      cooldownRef.current = false;
+      lastScannedRef.current = "";
+    }, 3000);
+  }, [processing, mutateStats, refreshRecent]);
+
+  // Start/stop QR scanner
+  useEffect(() => {
+    if (!cameraActive) {
+      // Stop scanner
+      if (html5QrRef.current) {
+        const scanner = html5QrRef.current as { stop: () => Promise<void>; clear: () => void };
+        scanner.stop().catch(() => {});
+        scanner.clear();
+        html5QrRef.current = null;
+      }
+      return;
+    }
+
+    // Start scanner
+    let mounted = true;
+    const startScanner = async () => {
+      try {
+        const { Html5Qrcode } = await import("html5-qrcode");
+        if (!mounted || !scannerRef.current) return;
+
+        const scannerId = "qr-reader";
+        let readerEl = document.getElementById(scannerId);
+        if (!readerEl && scannerRef.current) {
+          readerEl = document.createElement("div");
+          readerEl.id = scannerId;
+          scannerRef.current.appendChild(readerEl);
+        }
+
+        const scanner = new Html5Qrcode(scannerId);
+        html5QrRef.current = scanner;
+
+        await scanner.start(
+          { facingMode: "environment" },
+          { fps: 10, qrbox: { width: 250, height: 250 } },
+          (decodedText: string) => { handleQrScan(decodedText); },
+          () => {},
+        );
+      } catch (err) {
+        console.error("QR Scanner error:", err);
+        if (mounted) {
+          setScanResult({ type: "error", message: "Gagal mengakses kamera. Pastikan izin kamera diberikan." });
+          setCameraActive(false);
+        }
+      }
+    };
+
+    startScanner();
+
+    return () => {
+      mounted = false;
+      if (html5QrRef.current) {
+        const scanner = html5QrRef.current as { stop: () => Promise<void>; clear: () => void };
+        scanner.stop().catch(() => {});
+        scanner.clear();
+        html5QrRef.current = null;
+      }
+    };
+  }, [cameraActive, handleQrScan]);
+
+  const stopCamera = () => {
+    setCameraActive(false);
+    setScanResult(null);
   };
 
   return (
@@ -96,20 +242,11 @@ export default function PresensiPage() {
                       <div className="relative w-full max-w-sm aspect-square bg-gray-900 rounded-2xl overflow-hidden flex items-center justify-center">
                         {cameraActive ? (
                           <>
-                            {/* Camera placeholder - in production, use html5-qrcode or react-qr-reader */}
-                            <div className="absolute inset-0 bg-gradient-to-b from-black/20 to-transparent" />
-                            <div className="absolute inset-8 border-2 border-white/50 rounded-2xl" />
-                            <div className="absolute top-8 left-8 w-8 h-8 border-t-3 border-l-3 border-blue-400 rounded-tl-lg" />
-                            <div className="absolute top-8 right-8 w-8 h-8 border-t-3 border-r-3 border-blue-400 rounded-tr-lg" />
-                            <div className="absolute bottom-8 left-8 w-8 h-8 border-b-3 border-l-3 border-blue-400 rounded-bl-lg" />
-                            <div className="absolute bottom-8 right-8 w-8 h-8 border-b-3 border-r-3 border-blue-400 rounded-br-lg" />
-                            {/* Scan line animation */}
-                            <div className="absolute left-8 right-8 h-0.5 bg-blue-400 animate-pulse" style={{ top: '50%' }} />
-                            <p className="text-white/60 text-sm mt-32">Arahkan QR Code ke kamera...</p>
+                            <div ref={scannerRef} className="absolute inset-0 [&_video]:object-cover [&_video]:w-full [&_video]:h-full" />
                             <Button 
                               size="sm" 
-                              className="absolute bottom-4 bg-white/20 backdrop-blur-sm text-white"
-                              onPress={() => setCameraActive(false)}
+                              className="absolute bottom-4 z-10 bg-white/20 backdrop-blur-sm text-white"
+                              onPress={stopCamera}
                             >
                               Matikan Kamera
                             </Button>
@@ -127,7 +264,7 @@ export default function PresensiPage() {
                               color="primary" 
                               className="bg-blue-600 font-medium"
                               startContent={<Camera size={18} />}
-                              onPress={() => setCameraActive(true)}
+                              onPress={() => { setScanResult(null); setCameraActive(true); }}
                             >
                               Aktifkan Kamera
                             </Button>
@@ -135,21 +272,64 @@ export default function PresensiPage() {
                         )}
                       </div>
 
+                      {/* Scan Result Toast */}
+                      {scanResult && (
+                        <div className={`w-full max-w-sm mt-4 rounded-2xl p-4 ${
+                          scanResult.type === "success" ? "bg-emerald-50 border border-emerald-200" :
+                          scanResult.type === "warning" ? "bg-amber-50 border border-amber-200" :
+                          "bg-red-50 border border-red-200"
+                        }`}>
+                          <div className="flex items-start gap-3">
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                              scanResult.type === "success" ? "bg-emerald-100" :
+                              scanResult.type === "warning" ? "bg-amber-100" : "bg-red-100"
+                            }`}>
+                              {scanResult.type === "success" ? <CheckCircle size={20} className="text-emerald-600" weight="fill" /> :
+                               scanResult.type === "warning" ? <Clock size={20} className="text-amber-600" weight="fill" /> :
+                               <XCircle size={20} className="text-red-500" weight="fill" />}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              {scanResult.nama && (
+                                <p className="text-sm font-semibold text-gray-900">{scanResult.nama}</p>
+                              )}
+                              {scanResult.kelas && (
+                                <p className="text-xs text-gray-500">{scanResult.kelas}</p>
+                              )}
+                              {scanResult.status && (
+                                <Chip size="sm" color={statusColor(scanResult.status)} variant="flat" className="text-[10px] mt-1">
+                                  {scanResult.status} {scanResult.waktu && `• ${scanResult.waktu}`}
+                                </Chip>
+                              )}
+                              {scanResult.message && (
+                                <p className={`text-xs mt-1 ${
+                                  scanResult.type === "error" ? "text-red-600" : "text-amber-600"
+                                }`}>{scanResult.message}</p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
                       {/* Scanner Info */}
                       <div className="flex items-center gap-4 mt-4">
                         <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                          <WifiHigh size={14} className="text-emerald-500" />
-                          <span>Online</span>
+                          {cameraActive ? (
+                            <><WifiHigh size={14} className="text-emerald-500" /><span>Scanning</span></>
+                          ) : (
+                            <><WifiHigh size={14} className="text-gray-300" /><span>Offline</span></>
+                          )}
                         </div>
                         <div className="w-px h-3 bg-gray-200" />
                         <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                          <span>Mode: Gerbang Sekolah</span>
+                          <SpeakerHigh size={14} />
+                          <span>Scan: {scanCount}</span>
                         </div>
-                        <div className="w-px h-3 bg-gray-200" />
-                        <button className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700">
-                          <ArrowClockwise size={14} />
-                          <span>Reset</span>
-                        </button>
+                        {processing && (
+                          <>
+                            <div className="w-px h-3 bg-gray-200" />
+                            <span className="text-xs text-blue-600 animate-pulse">Memproses...</span>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -169,7 +349,8 @@ export default function PresensiPage() {
                       label="Cari Siswa"
                       placeholder="Ketik NIS atau nama siswa..."
                       size="lg"
-                      startContent={<MagnifyingGlass size={18} className="text-gray-400" />}
+                      value={manualSearch}
+                      onValueChange={setManualSearch}
                       classNames={{
                         inputWrapper: "bg-gray-50 border border-gray-200 shadow-none",
                       }}
@@ -246,9 +427,14 @@ export default function PresensiPage() {
                   </div>
                   <h3 className="font-semibold text-gray-900 text-sm">Scan Terbaru</h3>
                 </div>
-                <Chip size="sm" variant="flat" color="success" className="text-[10px]">
-                  Live
-                </Chip>
+                <div className="flex items-center gap-2">
+                  <button onClick={refreshRecent} className="text-gray-400 hover:text-blue-600 transition-colors">
+                    <ArrowClockwise size={14} />
+                  </button>
+                  <Chip size="sm" variant="flat" color="success" className="text-[10px]">
+                    Live
+                  </Chip>
+                </div>
               </div>
               <div className="divide-y divide-gray-50 max-h-[500px] overflow-y-auto">
                 {recentScans.length === 0 ? (
@@ -278,4 +464,3 @@ export default function PresensiPage() {
     </div>
   );
 }
-
