@@ -6,6 +6,7 @@ import { Input } from "@heroui/input";
 import { Avatar } from "@heroui/avatar";
 import { Switch } from "@heroui/switch";
 import { Select, SelectItem } from "@heroui/select";
+import { Chip } from "@heroui/chip";
 import { TopBar } from "@/components/top-bar";
 import { useSettings, useSubscription, useCurrentUser } from "@/hooks/use-swr-hooks";
 import { 
@@ -14,7 +15,6 @@ import {
   Buildings,
   BellRinging,
   Database,
-  WhatsappLogo,
   Key,
   Shield,
   Globe,
@@ -26,7 +26,7 @@ const tabs = [
   { key: "school", label: "Sekolah", icon: Buildings },
   { key: "security", label: "Keamanan", icon: Lock },
   { key: "notifications", label: "Notifikasi", icon: BellRinging },
-  { key: "whatsapp", label: "WhatsApp", icon: WhatsappLogo },
+  { key: "api", label: "API Key", icon: Key },
   { key: "system", label: "Sistem", icon: Database },
 ];
 
@@ -328,40 +328,70 @@ export default function SettingsPage() {
               </div>
             )}
 
-            {/* WhatsApp */}
-            {activeTab === "whatsapp" && (
+            {/* API Key */}
+            {activeTab === "api" && (
               <div className="space-y-6">
                 <div className="bg-white rounded-2xl border border-gray-100 p-6 space-y-5">
                   <div>
-                    <h3 className="font-semibold text-gray-900">Konfigurasi WhatsApp API</h3>
-                    <p className="text-xs text-gray-400 mt-0.5">Hubungkan dengan Fonnte atau WhatsApp Business API</p>
+                    <h3 className="font-semibold text-gray-900">API Key</h3>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      API Key digunakan untuk integrasi dengan sistem eksternal. Hubungi superadmin untuk setup WhatsApp API dan konfigurasi lainnya.
+                    </p>
                   </div>
                   <div className="space-y-4 max-w-lg">
-                    <Select label="Provider" defaultSelectedKeys={["fonnte"]} size="sm" classNames={{ trigger: "bg-gray-50 border border-gray-200 shadow-none" }}>
-                      <SelectItem key="fonnte">Fonnte</SelectItem>
-                      <SelectItem key="wabiz">WhatsApp Business API</SelectItem>
-                    </Select>
-                    <Input label="API Token" placeholder="Masukkan API token" size="sm" type="password" classNames={{ inputWrapper: "bg-gray-50 border border-gray-200 shadow-none" }} />
-                    <Input label="Nomor Pengirim" placeholder="6281xxxxxxxxx" size="sm" classNames={{ inputWrapper: "bg-gray-50 border border-gray-200 shadow-none" }} />
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="bordered" className="border-gray-200">Test Kirim</Button>
-                      <Button color="primary" size="sm" className="bg-blue-600 font-medium">Simpan</Button>
-                    </div>
+                    <Input
+                      label="API Key"
+                      placeholder="API key akan ditampilkan di sini"
+                      size="sm"
+                      type="password"
+                      value={getVal("api_key")}
+                      isReadOnly
+                      classNames={{ inputWrapper: "bg-gray-50 border border-gray-200 shadow-none" }}
+                      endContent={
+                        getVal("api_key") ? (
+                          <button
+                            className="text-xs text-blue-600 font-medium hover:text-blue-700"
+                            onClick={() => { navigator.clipboard.writeText(getVal("api_key")); }}
+                          >
+                            Copy
+                          </button>
+                        ) : null
+                      }
+                    />
+                    <Input
+                      label="Webhook URL (opsional)"
+                      placeholder="https://example.com/webhook"
+                      size="sm"
+                      value={getVal("webhook_url")}
+                      classNames={{ inputWrapper: "bg-gray-50 border border-gray-200 shadow-none" }}
+                      onValueChange={(v) => handleSaveSetting("webhook_url", v, "api")}
+                    />
+                  </div>
+                  <div className="p-3 bg-amber-50 rounded-xl">
+                    <p className="text-xs text-amber-700">
+                      <strong>Info:</strong> API Key dan konfigurasi WhatsApp API dikelola oleh superadmin. 
+                      Jika Anda memerlukan API key baru atau perubahan konfigurasi, silakan hubungi tim support.
+                    </p>
                   </div>
                 </div>
                 <div className="bg-white rounded-2xl border border-gray-100 p-6 space-y-4">
                   <div>
-                    <h3 className="font-semibold text-gray-900">Template Pesan</h3>
-                    <p className="text-xs text-gray-400 mt-0.5">Kustomisasi template notifikasi WhatsApp</p>
+                    <h3 className="font-semibold text-gray-900">Informasi Integrasi</h3>
+                    <p className="text-xs text-gray-400 mt-0.5">Status integrasi yang tersedia untuk sekolah Anda</p>
                   </div>
                   {[
-                    { label: "Hadir", template: "Assalamualaikum, {nama_ortu}. {nama_siswa} telah hadir di sekolah pada {waktu}." },
-                    { label: "Terlambat", template: "Assalamualaikum, {nama_ortu}. {nama_siswa} terlambat hadir di sekolah pada {waktu}." },
-                    { label: "Alpha", template: "Assalamualaikum, {nama_ortu}. {nama_siswa} tidak hadir di sekolah hari ini tanpa keterangan." },
-                  ].map((t, i) => (
-                    <div key={i} className="p-3 bg-gray-50 rounded-xl">
-                      <p className="text-xs font-semibold text-gray-700 mb-1.5">{t.label}</p>
-                      <p className="text-xs text-gray-500 leading-relaxed">{t.template}</p>
+                    { label: "WhatsApp Notifikasi", desc: "Notifikasi kehadiran ke orang tua via WhatsApp", status: getVal("wa_api_status", "inactive") },
+                    { label: "Email Notifikasi", desc: "Notifikasi via email untuk admin dan orang tua", status: getVal("email_status", "active") },
+                    { label: "Webhook", desc: "Kirim data presensi ke sistem eksternal", status: getVal("webhook_url") ? "active" : "inactive" },
+                  ].map((item, i) => (
+                    <div key={i} className="flex items-center justify-between py-3 border-b border-gray-50 last:border-0">
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">{item.label}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">{item.desc}</p>
+                      </div>
+                      <Chip size="sm" variant="flat" color={item.status === "active" ? "success" : "default"} className="text-[10px]">
+                        {item.status === "active" ? "Aktif" : "Tidak Aktif"}
+                      </Chip>
                     </div>
                   ))}
                 </div>

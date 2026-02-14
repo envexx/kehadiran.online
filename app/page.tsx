@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { Button } from "@heroui/button";
 import { Chip } from "@heroui/chip";
 import { 
@@ -26,6 +27,12 @@ import Image from "next/image";
 import { Marquee } from "@/components/ui/marquee";
 import { cn } from "@/lib/utils";
 
+const PLAN_ICONS: Record<string, typeof Lightning> = {
+  starter: Lightning,
+  pro: Rocket,
+  enterprise: Crown,
+};
+
 export default function LandingPage() {
   const features = [
     { icon: QrCode, title: "QR Code Presensi", description: "Scan QR untuk presensi instan. Cepat, akurat, tanpa antri." },
@@ -43,40 +50,33 @@ export default function LandingPage() {
     { value: "4.9", label: "Rating" },
   ];
 
+  const [dbPlans, setDbPlans] = useState<{ key: string; name: string; description: string | null; price_per_siswa: number; original_price: number | null; min_siswa: number; max_siswa: number; features: string[]; is_popular: boolean }[]>([]);
+
+  useEffect(() => {
+    fetch("/api/pricing-plans").then(r => r.json()).then(d => { if (d.data) setDbPlans(d.data); }).catch(() => {});
+  }, []);
+
   const plans = [
     {
       name: "Free Demo",
       price: "Gratis",
+      originalPrice: null as string | null,
       period: "30 hari",
       desc: "Coba dulu tanpa biaya",
       icon: Lightning,
+      popular: false,
       features: ["Maks 30 siswa", "5 guru", "QR Code scan", "Laporan dasar", "Email support"],
     },
-    {
-      name: "Starter",
-      price: "Rp 12.000",
+    ...dbPlans.map(p => ({
+      name: p.name,
+      price: `Rp ${p.price_per_siswa.toLocaleString("id-ID")}`,
+      originalPrice: p.original_price ? `Rp ${p.original_price.toLocaleString("id-ID")}` : null,
       period: "/siswa/bulan",
-      desc: "1–100 siswa",
-      icon: Lightning,
-      features: ["1–100 siswa", "Maks 20 guru", "QR Code scan", "Email support", "1.000 notifikasi WA/bulan"],
-    },
-    {
-      name: "Professional",
-      price: "Rp 10.000",
-      period: "/siswa/bulan",
-      desc: "101–500 siswa",
-      icon: Rocket,
-      popular: true,
-      features: ["101–500 siswa", "Maks 50 guru", "QR + Manual input", "Notifikasi WA real-time", "Laporan lengkap", "Export CSV", "5.000 notifikasi WA/bulan"],
-    },
-    {
-      name: "Enterprise",
-      price: "Rp 8.999",
-      period: "/siswa/bulan",
-      desc: "500+ siswa",
-      icon: Crown,
-      features: ["500+ siswa", "Maks 200 guru", "Custom domain (+Rp 3jt setup)", "Dedicated account manager", "20.000 notifikasi WA/bulan", "API access"],
-    },
+      desc: p.description || `${p.min_siswa}–${p.max_siswa} siswa`,
+      icon: PLAN_ICONS[p.key] || Lightning,
+      popular: p.is_popular,
+      features: (p.features || []) as string[],
+    })),
   ];
 
   const liveActivity = [
@@ -487,6 +487,7 @@ export default function LandingPage() {
                     </div>
                   </div>
                   <div className="mb-6">
+                    {plan.originalPrice && <span className="text-sm text-gray-400 line-through mr-2">{plan.originalPrice}</span>}
                     <span className="text-3xl font-bold text-gray-900">{plan.price}</span>
                     <span className="text-sm text-gray-400">{plan.period}</span>
                   </div>

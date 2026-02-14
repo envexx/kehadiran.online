@@ -2,19 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireTenantAuth } from "@/lib/auth";
 
-// Harga per siswa per bulan — plan ditentukan otomatis berdasarkan jumlah siswa
-const PLAN_CONFIG: Record<string, { pricePerSiswa: number; minSiswa: number; maxSiswa: number; max_guru: number; max_kelas: number; sms_quota: number; api_calls: number; storage_gb: number }> = {
-  starter: { pricePerSiswa: 12000, minSiswa: 1, maxSiswa: 100, max_guru: 20, max_kelas: 10, sms_quota: 1000, api_calls: 10000, storage_gb: 1 },
-  pro: { pricePerSiswa: 10000, minSiswa: 101, maxSiswa: 500, max_guru: 50, max_kelas: 30, sms_quota: 5000, api_calls: 50000, storage_gb: 5 },
-  enterprise: { pricePerSiswa: 8999, minSiswa: 501, maxSiswa: 5000, max_guru: 200, max_kelas: 100, sms_quota: 20000, api_calls: 200000, storage_gb: 20 },
-};
-
-function getPlanByCount(count: number): string {
-  if (count <= 100) return "starter";
-  if (count <= 500) return "pro";
-  return "enterprise";
-}
-
 export async function POST(request: NextRequest) {
   try {
     const { tenantId } = await requireTenantAuth();
@@ -25,14 +12,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Jumlah siswa harus minimal 1" }, { status: 400 });
     }
 
-    // Auto-determine plan based on jumlah siswa
-    const plan = getPlanByCount(jumlah_siswa);
-    const config = PLAN_CONFIG[plan];
+    // Fetch plans from DB and auto-determine based on jumlah siswa
+    const plans = await prisma.pricingPlan.findMany({
+      where: { is_active: true },
+      orderBy: { min_siswa: "asc" },
+    });
+
+    if (plans.length === 0) {
+      return NextResponse.json({ error: "Belum ada paket tersedia" }, { status: 400 });
+    }
+
+    // Find matching plan: last plan where min_siswa <= jumlah_siswa
+    const matchedPlan = plans.reduce((best, p) => {
+      if (jumlah_siswa >= p.min_siswa) return p;
+      return best;
+    }, plans[0]);
+
+    const pricePerSiswa = Number(matchedPlan.price_per_siswa);
     const cycle = billing_cycle || "monthly";
 
     // Harga = harga per siswa × jumlah siswa × bulan
     const months = cycle === "annual" ? 10 : 1; // annual = 10 bulan (2 bulan gratis)
-    const totalAmount = config.pricePerSiswa * jumlah_siswa * months;
+    const totalAmount = pricePerSiswa * jumlah_siswa * months;
 
     const now = new Date();
     const endDate = new Date(now);
@@ -46,7 +47,7 @@ export async function POST(request: NextRequest) {
     const subscription = await prisma.subscription.upsert({
       where: { tenant_id: tenantId },
       update: {
-        plan,
+        plan: matchedPlan.key,
         status: "active",
         billing_cycle: cycle,
         amount: totalAmount,
@@ -56,7 +57,7 @@ export async function POST(request: NextRequest) {
       },
       create: {
         tenant_id: tenantId,
-        plan,
+        plan: matchedPlan.key,
         status: "active",
         billing_cycle: cycle,
         amount: totalAmount,
@@ -71,20 +72,20 @@ export async function POST(request: NextRequest) {
       where: { tenant_id: tenantId },
       update: {
         max_siswa: jumlah_siswa,
-        max_guru: config.max_guru,
-        max_kelas: config.max_kelas,
-        sms_quota: config.sms_quota,
-        api_calls: config.api_calls,
-        storage_gb: config.storage_gb,
+        max_guru: matchedPlan.max_guru,
+        max_kelas: matchedPlan.max_kelas,
+        sms_quota: matchedPlan.sms_quota,
+        api_calls: matchedPlan.api_calls,
+        storage_gb: matchedPlan.storage_gb,
       },
       create: {
         tenant_id: tenantId,
         max_siswa: jumlah_siswa,
-        max_guru: config.max_guru,
-        max_kelas: config.max_kelas,
-        sms_quota: config.sms_quota,
-        api_calls: config.api_calls,
-        storage_gb: config.storage_gb,
+        max_guru: matchedPlan.max_guru,
+        max_kelas: matchedPlan.max_kelas,
+        sms_quota: matchedPlan.sms_quota,
+        api_calls: matchedPlan.api_calls,
+        storage_gb: matchedPlan.storage_gb,
       },
     });
 
@@ -101,7 +102,7 @@ export async function POST(request: NextRequest) {
         status: "sent",
         issued_at: now,
         due_at: dueDate,
-        notes: `Paket ${plan.charAt(0).toUpperCase() + plan.slice(1)} (${cycle}) - ${jumlah_siswa} siswa × Rp ${config.pricePerSiswa.toLocaleString("id-ID")}/siswa`,
+        notes: `Paket ${matchedPlan.name} (${cycle}) - ${jumlah_siswa} siswa × Rp ${pricePerSiswa.toLocaleString("id-ID")}/siswa`,
       },
     });
 
@@ -112,7 +113,7 @@ export async function POST(request: NextRequest) {
         status: subscription.status,
         billing_cycle: subscription.billing_cycle,
         amount: Number(subscription.amount),
-        pricePerSiswa: config.pricePerSiswa,
+        pricePerSiswa,
         jumlahSiswa: jumlah_siswa,
         started_at: subscription.started_at,
         ended_at: subscription.ended_at,

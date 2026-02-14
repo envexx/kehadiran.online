@@ -447,6 +447,34 @@ model Permission {
 }
 
 // ============================================
+// PRICING PLANS (Global - Super Admin managed)
+// ============================================
+model PricingPlan {
+  id              String   @id @default(cuid())
+  key             String   @unique @db.VarChar(50) // 'starter', 'pro', 'enterprise'
+  name            String   @db.VarChar(100)
+  description     String?  @db.Text
+  price_per_siswa Decimal  @db.Decimal(10, 2)
+  original_price  Decimal? @db.Decimal(10, 2) // harga coret (promo)
+  min_siswa       Int      @default(1)
+  max_siswa       Int      @default(100)
+  max_guru        Int      @default(20)
+  max_kelas       Int      @default(10)
+  sms_quota       Int      @default(1000)
+  api_calls       Int      @default(10000)
+  storage_gb      Decimal  @default(1) @db.Decimal(10, 2)
+  features        Json?    // array of feature strings
+  is_popular      Boolean  @default(false)
+  is_active       Boolean  @default(true)
+  sort_order      Int      @default(0)
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  @@index([is_active, sort_order])
+  @@map("pricing_plans")
+}
+
+// ============================================
 // SMTP CONFIGURATION (Global - Super Admin)
 // ============================================
 model SmtpConfig {

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@heroui/button";
 import { Chip } from "@heroui/chip";
+import { Skeleton } from "@heroui/skeleton";
 import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, useDisclosure } from "@heroui/modal";
 import { TopBar } from "@/components/top-bar";
 import { useSubscription, useInvoices } from "@/hooks/use-swr-hooks";
@@ -15,56 +16,38 @@ import {
   ArrowUp
 } from "phosphor-react";
 
-const PLANS = [
-  {
-    key: "starter",
-    name: "Starter",
-    price: 12000,
-    priceLabel: "Rp 12.000",
-    period: "/siswa/bulan",
-    desc: "1–100 siswa",
-    range: "1–100",
-    icon: Lightning,
-    color: "blue" as const,
-    features: ["1–100 siswa", "Maks 20 guru", "Maks 10 kelas", "QR Code scan", "Email support", "1.000 notifikasi WA/bulan"],
-  },
-  {
-    key: "pro",
-    name: "Professional",
-    price: 10000,
-    priceLabel: "Rp 10.000",
-    period: "/siswa/bulan",
-    desc: "101–500 siswa",
-    range: "101–500",
-    icon: Rocket,
-    color: "blue" as const,
-    popular: true,
-    features: ["101–500 siswa", "Maks 50 guru", "Maks 30 kelas", "QR + Manual input", "Notifikasi WA real-time", "Laporan lengkap", "Export CSV", "5.000 notifikasi WA/bulan"],
-  },
-  {
-    key: "enterprise",
-    name: "Enterprise",
-    price: 8999,
-    priceLabel: "Rp 8.999",
-    period: "/siswa/bulan",
-    desc: "500+ siswa",
-    range: "500+",
-    icon: Crown,
-    color: "amber" as const,
-    features: ["500+ siswa", "Maks 200 guru", "Maks 100 kelas", "Semua fitur Pro", "Custom domain (+Rp 3jt setup)", "Dedicated account manager", "20.000 notifikasi WA/bulan", "API access"],
-  },
-];
-
-function getPlanByCount(count: number) {
-  if (count <= 100) return PLANS[0];
-  if (count <= 500) return PLANS[1];
-  return PLANS[2];
+interface PlanData {
+  id: string;
+  key: string;
+  name: string;
+  description: string | null;
+  price_per_siswa: number;
+  original_price: number | null;
+  min_siswa: number;
+  max_siswa: number;
+  max_guru: number;
+  max_kelas: number;
+  sms_quota: number;
+  features: string[];
+  is_popular: boolean;
 }
+
+const PLAN_ICONS: Record<string, { icon: typeof Lightning; color: string }> = {
+  starter: { icon: Lightning, color: "blue" },
+  pro: { icon: Rocket, color: "blue" },
+  enterprise: { icon: Crown, color: "amber" },
+};
 
 export default function BillingPage() {
   const { data: subData, mutate: mutateSub } = useSubscription();
   const { data: invData, mutate: mutateInv } = useInvoices();
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
+  const [plans, setPlans] = useState<PlanData[]>([]);
+  const [plansLoading, setPlansLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/pricing-plans").then(r => r.json()).then(d => { if (d.data) setPlans(d.data); }).catch(() => {}).finally(() => setPlansLoading(false));
+  }, []);
 
   const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">("monthly");
   const [upgrading, setUpgrading] = useState(false);
@@ -76,7 +59,10 @@ export default function BillingPage() {
 
   // Derived: auto-select plan based on input siswa count
   const siswaCount = parseInt(inputSiswa) || 0;
-  const selectedPlan = siswaCount > 0 ? getPlanByCount(siswaCount) : null;
+  const selectedPlan = siswaCount > 0 ? plans.reduce<PlanData | null>((best, p) => {
+    if (siswaCount >= p.min_siswa) return p;
+    return best;
+  }, plans[0] || null) : null;
 
   const openUpgradeModal = () => {
     setInputSiswa("");
@@ -116,9 +102,9 @@ export default function BillingPage() {
     })) || [];
 
   // Pricing: harga per siswa × jumlah siswa
-  const monthlyTotal = selectedPlan ? selectedPlan.price * siswaCount : 0;
-  const annualTotal = selectedPlan ? selectedPlan.price * siswaCount * 10 : 0; // 10 bulan (2 gratis)
-  const annualDiscount = selectedPlan ? selectedPlan.price * siswaCount * 2 : 0; // 2 bulan gratis
+  const monthlyTotal = selectedPlan ? selectedPlan.price_per_siswa * siswaCount : 0;
+  const annualTotal = selectedPlan ? selectedPlan.price_per_siswa * siswaCount * 10 : 0; // 10 bulan (2 gratis)
+  const annualDiscount = selectedPlan ? selectedPlan.price_per_siswa * siswaCount * 2 : 0; // 2 bulan gratis
 
   return (
     <div className="min-h-screen">
@@ -167,9 +153,12 @@ export default function BillingPage() {
             <p className="text-xs text-gray-400">Paket otomatis dipilih berdasarkan jumlah siswa</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {PLANS.map((plan) => {
-              const Icon = plan.icon;
+            {plansLoading ? [1,2,3].map(i => <Skeleton key={i} className="w-full h-64 rounded-2xl" />) : plans.map((plan) => {
+              const iconConfig = PLAN_ICONS[plan.key] || { icon: Lightning, color: "blue" };
+              const Icon = iconConfig.icon;
+              const color = iconConfig.color;
               const isCurrent = plan.key === currentPlan;
+              const hasPromo = plan.original_price && plan.original_price > plan.price_per_siswa;
               return (
                 <div
                   key={plan.key}
@@ -177,7 +166,7 @@ export default function BillingPage() {
                     isCurrent ? "border-blue-300 shadow-md shadow-blue-100" : "border-gray-100 hover:border-blue-200 hover:shadow-sm"
                   }`}
                 >
-                  {plan.popular && (
+                  {plan.is_popular && (
                     <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                       <Chip size="sm" color="primary" className="bg-blue-600 text-white text-[10px] font-semibold">
                         Paling Populer
@@ -185,20 +174,21 @@ export default function BillingPage() {
                     </div>
                   )}
                   <div className="flex items-center gap-3 mb-4">
-                    <div className={`w-10 h-10 rounded-xl ${plan.color === "amber" ? "bg-amber-50" : "bg-blue-50"} flex items-center justify-center`}>
-                      <Icon size={20} weight="fill" className={plan.color === "amber" ? "text-amber-600" : "text-blue-600"} />
+                    <div className={`w-10 h-10 rounded-xl ${color === "amber" ? "bg-amber-50" : "bg-blue-50"} flex items-center justify-center`}>
+                      <Icon size={20} weight="fill" className={color === "amber" ? "text-amber-600" : "text-blue-600"} />
                     </div>
                     <div>
                       <h4 className="font-bold text-gray-900">{plan.name}</h4>
-                      <p className="text-xs text-gray-400">{plan.desc}</p>
+                      <p className="text-xs text-gray-400">{plan.description || `${plan.min_siswa}–${plan.max_siswa} siswa`}</p>
                     </div>
                   </div>
                   <div className="mb-5">
-                    <span className="text-2xl font-bold text-gray-900">{plan.priceLabel}</span>
-                    <span className="text-sm text-gray-400">{plan.period}</span>
+                    {hasPromo && <span className="text-sm text-gray-400 line-through mr-2">Rp {plan.original_price!.toLocaleString("id-ID")}</span>}
+                    <span className="text-2xl font-bold text-gray-900">Rp {plan.price_per_siswa.toLocaleString("id-ID")}</span>
+                    <span className="text-sm text-gray-400">/siswa/bulan</span>
                   </div>
                   <div className="space-y-2.5 mb-6">
-                    {plan.features.map((f, i) => (
+                    {(plan.features as string[] || []).map((f: string, i: number) => (
                       <div key={i} className="flex items-center gap-2">
                         <Check size={14} weight="bold" className="text-emerald-500 flex-shrink-0" />
                         <span className="text-sm text-gray-600">{f}</span>
@@ -287,10 +277,10 @@ export default function BillingPage() {
                         onChange={(e) => setInputSiswa(e.target.value)}
                         className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-blue-500 focus:outline-none text-lg font-semibold text-gray-900 transition-colors"
                       />
-                      <div className="flex items-center gap-4 mt-2">
-                        {PLANS.map(p => (
+                      <div className="flex items-center gap-4 mt-2 flex-wrap">
+                        {plans.map((p: PlanData) => (
                           <span key={p.key} className={`text-xs ${selectedPlan?.key === p.key ? "text-blue-600 font-semibold" : "text-gray-400"}`}>
-                            {p.range} siswa = Rp {p.price.toLocaleString("id-ID")}/siswa
+                            {p.min_siswa}–{p.max_siswa} siswa = Rp {p.price_per_siswa.toLocaleString("id-ID")}/siswa
                           </span>
                         ))}
                       </div>
@@ -300,10 +290,10 @@ export default function BillingPage() {
                     {selectedPlan && (
                       <>
                         <div className="bg-blue-50 rounded-2xl p-4 flex items-center gap-3">
-                          {(() => { const Icon = selectedPlan.icon; return <div className={`w-10 h-10 rounded-xl ${selectedPlan.color === "amber" ? "bg-amber-100" : "bg-blue-100"} flex items-center justify-center`}><Icon size={20} weight="fill" className={selectedPlan.color === "amber" ? "text-amber-600" : "text-blue-600"} /></div>; })()}
+                          {(() => { const ic = PLAN_ICONS[selectedPlan.key] || { icon: Lightning, color: "blue" }; const Icon = ic.icon; return <div className={`w-10 h-10 rounded-xl ${ic.color === "amber" ? "bg-amber-100" : "bg-blue-100"} flex items-center justify-center`}><Icon size={20} weight="fill" className={ic.color === "amber" ? "text-amber-600" : "text-blue-600"} /></div>; })()}
                           <div className="flex-1">
                             <p className="text-sm font-semibold text-gray-900">Paket {selectedPlan.name} <Chip size="sm" className="bg-blue-600 text-white text-[10px] ml-1">Otomatis</Chip></p>
-                            <p className="text-xs text-gray-500">{selectedPlan.desc} · Rp {selectedPlan.price.toLocaleString("id-ID")}/siswa/bulan</p>
+                            <p className="text-xs text-gray-500">{selectedPlan.description || `${selectedPlan.min_siswa}–${selectedPlan.max_siswa} siswa`} · Rp {selectedPlan.price_per_siswa.toLocaleString("id-ID")}/siswa/bulan</p>
                           </div>
                         </div>
 
@@ -337,7 +327,7 @@ export default function BillingPage() {
                         <div className="border-t border-gray-100 pt-4">
                           <div className="flex items-center justify-between mb-2">
                             <span className="text-sm text-gray-500">Harga per siswa</span>
-                            <span className="text-sm text-gray-700">Rp {selectedPlan.price.toLocaleString("id-ID")}/siswa/bulan</span>
+                            <span className="text-sm text-gray-700">Rp {selectedPlan.price_per_siswa.toLocaleString("id-ID")}/siswa/bulan</span>
                           </div>
                           <div className="flex items-center justify-between mb-2">
                             <span className="text-sm text-gray-500">Jumlah siswa</span>
