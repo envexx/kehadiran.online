@@ -69,16 +69,28 @@ export default function SiswaPage() {
 
   const resetForm = () => { setFNama(""); setFNisn(""); setFNis(""); setFJk(""); setFKelasId(""); setFTempatLahir(""); setFTglLahir(""); setFNamaAyah(""); setFWaAyah(""); setFNamaIbu(""); setFWaIbu(""); setFormError(""); setEditId(""); };
 
-  const openEdit = (s: { id: string; nisn: string; nis?: string; nama_lengkap: string; jenis_kelamin: string; kelas_id: string }) => {
+  const openEdit = async (s: { id: string }) => {
     setEditId(s.id);
-    setFNama(s.nama_lengkap);
-    setFNisn(s.nisn);
-    setFNis(s.nis || "");
-    setFJk(s.jenis_kelamin);
-    setFKelasId(s.kelas_id);
-    setFTempatLahir(""); setFTglLahir(""); setFNamaAyah(""); setFWaAyah(""); setFNamaIbu(""); setFWaIbu("");
     setFormError("");
     onEditOpen();
+    try {
+      const res = await fetch(`/api/siswa/${s.id}`);
+      const data = await res.json();
+      if (!res.ok) { setFormError(data.error || "Gagal memuat data"); return; }
+      setFNama(data.nama_lengkap || "");
+      setFNisn(data.nisn || "");
+      setFNis(data.nis || "");
+      setFJk(data.jenis_kelamin || "");
+      setFKelasId(data.kelas_id || "");
+      setFTempatLahir(data.tempat_lahir || "");
+      setFTglLahir(data.tanggal_lahir || "");
+      setFNamaAyah(data.nama_ayah || "");
+      setFWaAyah(data.nomor_wa_ayah || "");
+      setFNamaIbu(data.nama_ibu || "");
+      setFWaIbu(data.nomor_wa_ibu || "");
+    } catch {
+      setFormError("Gagal memuat data siswa");
+    }
   };
 
   const handleUpdate = async (onClose: () => void) => {

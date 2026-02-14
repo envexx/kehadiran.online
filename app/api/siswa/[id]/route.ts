@@ -2,6 +2,43 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireTenantAuth } from "@/lib/auth";
 
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const { tenantId } = await requireTenantAuth();
+    const { id } = await params;
+
+    const siswa = await prisma.siswa.findFirst({
+      where: { id, tenant_id: tenantId },
+      include: { kelas: { select: { nama_kelas: true } } },
+    });
+    if (!siswa) return NextResponse.json({ error: "Siswa tidak ditemukan" }, { status: 404 });
+
+    return NextResponse.json({
+      id: siswa.id,
+      nisn: siswa.nisn,
+      nis: siswa.nis,
+      nama_lengkap: siswa.nama_lengkap,
+      jenis_kelamin: siswa.jenis_kelamin,
+      kelas_id: siswa.kelas_id,
+      kelas: siswa.kelas.nama_kelas,
+      tempat_lahir: siswa.tempat_lahir,
+      tanggal_lahir: siswa.tanggal_lahir ? siswa.tanggal_lahir.toISOString().split("T")[0] : null,
+      alamat: siswa.alamat,
+      status: siswa.status,
+      nama_ayah: siswa.nama_ayah,
+      nomor_wa_ayah: siswa.nomor_wa_ayah,
+      nama_ibu: siswa.nama_ibu,
+      nomor_wa_ibu: siswa.nomor_wa_ibu,
+      foto: siswa.foto,
+    });
+  } catch (e: unknown) {
+    if (e instanceof Error && e.message === "UNAUTHORIZED") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
+
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { tenantId } = await requireTenantAuth();
