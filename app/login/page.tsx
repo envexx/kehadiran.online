@@ -10,7 +10,8 @@ import {
   EyeSlash, 
   EnvelopeSimple,
   Lock,
-  ArrowRight
+  ArrowRight,
+  Play
 } from "phosphor-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -18,6 +19,7 @@ import Image from "next/image";
 export default function LoginPage() {
   const [isVisible, setIsVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isDemoLoading, setIsDemoLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -39,6 +41,26 @@ export default function LoginPage() {
     } catch {
       setError("Terjadi kesalahan. Coba lagi.");
       setIsLoading(false);
+    }
+  };
+
+  const handleDemoLogin = async () => {
+    setIsDemoLoading(true);
+    setError("");
+    setEmail("demo@kehadiran.online");
+    setPassword("demokehadiran");
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: "demo@kehadiran.online", password: "demokehadiran" }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error || "Demo login gagal"); setIsDemoLoading(false); return; }
+      window.location.href = "/dashboard";
+    } catch {
+      setError("Terjadi kesalahan. Coba lagi.");
+      setIsDemoLoading(false);
     }
   };
 
@@ -200,15 +222,16 @@ export default function LoginPage() {
             </div>
           </div>
 
-          {/* Demo Access */}
+          {/* Live Demo */}
           <Button
-            as={Link}
-            href="/dashboard"
             variant="bordered"
             size="lg"
             className="w-full border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-900"
+            isLoading={isDemoLoading}
+            startContent={!isDemoLoading && <Play size={18} weight="fill" className="text-emerald-500" />}
+            onPress={handleDemoLogin}
           >
-            Lihat Demo Dashboard
+            Live Demo
           </Button>
         </div>
       </div>
