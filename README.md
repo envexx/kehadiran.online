@@ -1,80 +1,75 @@
-# Coursue - Online Learning Platform
+# Kehadiran.online
 
-Modern and clean dashboard untuk platform pembelajaran online dengan desain yang smooth menggunakan Next.js 15 dan HeroUI v2.
+**Platform Manajemen Presensi Sekolah Berbasis Cloud** oleh [PT CORE SOLUTION DIGITAL](https://www.coresolution.digital/)
 
-## 🎨 Features
+Kehadiran.online adalah platform SaaS multi-tenant untuk manajemen kehadiran siswa secara digital. Mendukung presensi via QR Code, input manual, notifikasi WhatsApp real-time ke orang tua, serta dashboard analitik lengkap untuk sekolah.
 
-- ✨ Design modern dan clean seperti platform course profesional
-- 🎯 Sidebar navigation dengan menu yang smooth
-- 📊 Dashboard dengan statistik pembelajaran
-- 👥 Section untuk friends dan mentors
-- 🎓 Course cards dengan progress tracking
-- 💫 Animasi dan transisi yang smooth
-- 🌈 Phosphor Icons untuk tampilan icon yang lebih bagus
+## Fitur Utama
 
-## 🛠 Technologies Used
+- **Multi-Tenant** — Satu platform untuk banyak sekolah, masing-masing terisolasi
+- **Presensi QR Code** — Scan QR siswa untuk presensi masuk & pulang
+- **Notifikasi WhatsApp** — Kirim notifikasi otomatis ke orang tua via Fonnte API
+- **Dashboard Analitik** — Statistik kehadiran harian, mingguan, dan bulanan
+- **Manajemen Siswa** — CRUD siswa, import CSV, kartu presensi QR
+- **Manajemen Guru & Kelas** — Data guru, kelas per semester, wali kelas
+- **Jadwal Fleksibel** — Atur jam masuk/pulang per hari
+- **Laporan & Export** — Laporan presensi dengan filter, export CSV
+- **Billing & Subscription** — Paket langganan (Starter, Pro, Enterprise)
+- **Superadmin Panel** — Kelola tenant, user, SMTP, pricing, WhatsApp config
+- **Dark/Light Mode** — UI responsif dengan dukungan tema
+- **Live Demo** — Akun demo siap pakai di halaman login
 
-- [Next.js 15](https://nextjs.org/docs/getting-started) - React Framework
-- [HeroUI v2](https://heroui.com/) - Modern UI Component Library
-- [Phosphor React](https://phosphoricons.com/) - Beautiful Icon Library
-- [Tailwind CSS](https://tailwindcss.com/) - Utility-first CSS Framework
-- [TypeScript](https://www.typescriptlang.org/) - Type Safety
-- [Framer Motion](https://www.framer.com/motion/) - Animation Library
-- [next-themes](https://github.com/pacocoursey/next-themes) - Theme Management
+## Tech Stack
 
-## 🚀 Getting Started
+| Layer | Teknologi |
+|-------|-----------|
+| Framework | [Next.js 15](https://nextjs.org/) (App Router, Turbopack) |
+| UI | [HeroUI v2](https://heroui.com/), [Tailwind CSS v4](https://tailwindcss.com/), [Phosphor Icons](https://phosphoricons.com/) |
+| Database | PostgreSQL + [Prisma ORM](https://www.prisma.io/) |
+| Auth | JWT (jose) + bcryptjs, OTP email verification |
+| WhatsApp | [Fonnte API](https://fonnte.com/) dengan rate-limited queue |
+| Email | Nodemailer + dynamic SMTP config |
+| State | [SWR](https://swr.vercel.app/) untuk client-side data fetching |
+| Deploy | [Vercel](https://vercel.com/) |
 
-### Install dependencies
+## Quick Start
 
 ```bash
+# Install dependencies
 npm install
-```
 
-### Run the development server
+# Setup database
+cp .env.example .env   # isi DATABASE_URL, JWT_SECRET, dll
+npx prisma db push
+npx prisma generate
 
-```bash
+# Seed data
+npx tsx prisma/seed.ts                # superadmin + demo tenant
+npx tsx prisma/seed-pricing-plans.ts  # pricing plans
+npx tsx prisma/seed-demo.ts           # demo account (demo@kehadiran.online)
+
+# Run dev server
 npm run dev
 ```
 
-Buka [http://localhost:3000](http://localhost:3000) untuk melihat aplikasi.
+Buka [http://localhost:3000](http://localhost:3000)
 
-## 📁 Project Structure
+### Demo Account
 
-```
-presensi/
-├── app/
-│   ├── layout.tsx          # Root layout dengan sidebar
-│   ├── page.tsx            # Dashboard page
-│   └── providers.tsx       # Theme providers
-├── components/
-│   ├── sidebar.tsx         # Sidebar navigation
-│   ├── icons.tsx           # Custom icons
-│   └── ...
-├── config/
-│   ├── site.ts            # Site configuration
-│   └── fonts.ts           # Font configuration
-└── styles/
-    └── globals.css        # Global styles
-```
+| | |
+|---|---|
+| **Email** | `demo@kehadiran.online` |
+| **Password** | `demokehadiran` |
 
-## 🎨 Design Features
+Atau klik tombol **Live Demo** di halaman login.
 
-### Sidebar
-- Clean navigation dengan icon Phosphor
-- Section groups (Overview, Friends, Settings)
-- Avatar untuk friends list
-- Active state indicators
-- Smooth hover transitions
+## Dokumentasi
 
-### Dashboard
-- Hero banner dengan gradient
-- Course progress cards
-- Continue watching section dengan image cards
-- User statistics dengan progress chart
-- Mentor list dengan follow buttons
-- Responsive grid layout
+Lihat [DOCUMENTATION.md](./DOCUMENTATION.md) untuk dokumentasi lengkap meliputi arsitektur, alur kerja, API reference, dan database schema.
 
-## 📝 License
+## Lisensi
 
-Licensed under the [MIT license](https://github.com/heroui-inc/next-app-template/blob/main/LICENSE).
+Licensed under the [MIT License](./LICENSE).
+
+Copyright (c) 2026 [PT CORE SOLUTION DIGITAL](https://www.coresolution.digital/)
 
