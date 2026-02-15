@@ -10,10 +10,10 @@ export interface AuthPayload {
   tenantId?: string;
 }
 
-export async function getAuthPayload(): Promise<AuthPayload | null> {
+export async function getAuthPayload(cookieName: string = "auth-token"): Promise<AuthPayload | null> {
   try {
     const cookieStore = await cookies();
-    const token = cookieStore.get("auth-token")?.value;
+    const token = cookieStore.get(cookieName)?.value;
 
     if (!token) return null;
 
@@ -42,7 +42,7 @@ export async function requireTenantAuth(): Promise<{ userId: string; tenantId: s
 }
 
 export async function requireSuperAdminAuth(): Promise<{ userId: string }> {
-  const auth = await getAuthPayload();
+  const auth = await getAuthPayload("admin-token");
 
   if (!auth || !auth.sub) {
     throw new Error("UNAUTHORIZED");

@@ -96,23 +96,23 @@ export default function LoginPage() {
       </div>
 
       {/* Right - Login Form */}
-      <div className="flex-1 flex items-center justify-center p-6 bg-gray-50/50">
+      <div className="flex-1 flex items-center justify-center p-6 bg-gray-50/50 dark:bg-gray-950">
         <div className="w-full max-w-md">
           {/* Mobile Logo */}
           <div className="flex items-center gap-3 mb-8 lg:hidden">
             <div className="w-10 h-10 relative">
-              <Image src="/kehadiran.png" alt="Kehadiran" width={40} height={40} className="object-contain" />
+              <Image src="/kehadiran.png" alt="Kehadiran" width={40} height={40} className="object-contain dark:brightness-0 dark:invert" />
             </div>
-            <span className="text-xl font-bold">Kehadiran</span>
+            <span className="text-xl font-bold text-gray-900 dark:text-white">Kehadiran</span>
           </div>
 
           <div className="space-y-2 mb-8">
-            <h2 className="text-2xl font-bold text-gray-900">Selamat Datang</h2>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Selamat Datang</h2>
             <p className="text-gray-500">Masuk ke akun Anda untuk melanjutkan</p>
           </div>
 
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl px-4 py-3 mb-2">
+            <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-red-600 dark:text-red-400 text-sm rounded-xl px-4 py-3 mb-2">
               {error}
             </div>
           )}
@@ -127,8 +127,9 @@ export default function LoginPage() {
               onValueChange={setEmail}
               startContent={<EnvelopeSimple size={20} className="text-gray-400" />}
               classNames={{
-                inputWrapper: "bg-white border border-gray-200 hover:border-blue-400 shadow-sm",
-                label: "text-gray-600",
+                inputWrapper: "bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 hover:border-blue-400 dark:hover:border-gray-700 shadow-sm dark:shadow-none",
+                input: "text-gray-900 dark:text-gray-200",
+                label: "text-gray-600 dark:text-gray-400",
               }}
               isRequired
             />
@@ -151,8 +152,9 @@ export default function LoginPage() {
               }
               type={isVisible ? "text" : "password"}
               classNames={{
-                inputWrapper: "bg-white border border-gray-200 hover:border-blue-400 shadow-sm",
-                label: "text-gray-600",
+                inputWrapper: "bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 hover:border-blue-400 dark:hover:border-gray-700 shadow-sm dark:shadow-none",
+                input: "text-gray-900 dark:text-gray-200",
+                label: "text-gray-600 dark:text-gray-400",
               }}
               isRequired
             />
@@ -160,7 +162,7 @@ export default function LoginPage() {
             <div className="flex items-center justify-between">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="checkbox" className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-                <span className="text-sm text-gray-600">Ingat saya</span>
+                <span className="text-sm text-gray-600 dark:text-gray-400">Ingat saya</span>
               </label>
               <Link href="/forgot-password" className="text-sm text-blue-600 hover:text-blue-700 font-medium">
                 Lupa password?
@@ -191,10 +193,10 @@ export default function LoginPage() {
           {/* Divider */}
           <div className="relative my-8">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-200" />
+              <div className="w-full border-t border-gray-200 dark:border-gray-800" />
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-4 bg-gray-50/50 text-gray-400">atau</span>
+              <span className="px-4 bg-gray-50/50 dark:bg-gray-950 text-gray-400">atau</span>
             </div>
           </div>
 
@@ -204,7 +206,7 @@ export default function LoginPage() {
             href="/dashboard"
             variant="bordered"
             size="lg"
-            className="w-full border-gray-200 text-gray-600 hover:bg-gray-50"
+            className="w-full border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-900"
           >
             Lihat Demo Dashboard
           </Button>

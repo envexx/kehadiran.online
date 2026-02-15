@@ -62,8 +62,15 @@ export default function AdminPricingPage() {
     try {
       const res = await fetch("/api/admin/pricing-plans");
       const json = await res.json();
-      if (json.data) setPlans(json.data);
-    } catch {}
+      if (json.data) {
+        setPlans(json.data);
+      } else if (json.error) {
+        setError(json.error);
+      }
+    } catch (e) {
+      console.error("Failed to fetch pricing plans:", e);
+      setError("Gagal memuat data paket harga");
+    }
     setLoading(false);
   };
 
@@ -143,6 +150,11 @@ export default function AdminPricingPage() {
       </div>
 
       <div className="p-4 sm:p-6 max-w-[1400px] mx-auto">
+        {error && !isOpen && (
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-sm rounded-xl px-4 py-3 mb-4">
+            {error}
+          </div>
+        )}
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {[1,2,3].map(i => <div key={i} className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-6 h-64 animate-pulse" />)}
