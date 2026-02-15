@@ -1,15 +1,14 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireTenantAuth } from "@/lib/auth";
+import { todayStartWIB, todayEndWIB } from "@/lib/utils";
 
 export async function GET() {
   try {
     const { tenantId } = await requireTenantAuth();
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+    const today = todayStartWIB();
+    const tomorrow = todayEndWIB();
 
     const [totalSiswa, presensiData] = await Promise.all([
       prisma.siswa.count({ where: { tenant_id: tenantId, status: "aktif" } }),

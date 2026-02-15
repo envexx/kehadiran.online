@@ -2,20 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireTenantAuth } from "@/lib/auth";
 import { sendPresensiNotification } from "@/lib/whatsapp";
+import { todayDateStringWIB, dateStringToStartWIB, dateStringToEndWIB, formatTimeWIB } from "@/lib/utils";
 
 export async function GET(request: NextRequest) {
   try {
     const { tenantId } = await requireTenantAuth();
 
     const { searchParams } = new URL(request.url);
-    const tanggal = searchParams.get("tanggal") || new Date().toISOString().split("T")[0];
+    const tanggal = searchParams.get("tanggal") || todayDateStringWIB();
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "20");
 
-    const dateStart = new Date(tanggal);
-    dateStart.setHours(0, 0, 0, 0);
-    const dateEnd = new Date(dateStart);
-    dateEnd.setDate(dateEnd.getDate() + 1);
+    const dateStart = dateStringToStartWIB(tanggal);
+    const dateEnd = dateStringToEndWIB(tanggal);
 
     const where = {
       tenant_id: tenantId,
@@ -43,7 +42,7 @@ export async function GET(request: NextRequest) {
       nama: p.siswa.nama_lengkap,
       kelas: p.siswa.kelas.nama_kelas,
       tanggal: p.tanggal.toISOString().split("T")[0],
-      waktu_masuk: p.waktu_masuk ? p.waktu_masuk.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) : null,
+      waktu_masuk: p.waktu_masuk ? formatTimeWIB(p.waktu_masuk) : null,
       status_masuk: p.status_masuk,
       metode_input: p.metode_input,
     }));
@@ -82,7 +81,7 @@ export async function POST(request: NextRequest) {
     // Fire-and-forget: send WA notification (hadir, terlambat, alpha only)
     const notifStatuses = ["hadir", "terlambat", "alpha"];
     if (notifStatuses.includes(statusMasuk)) {
-      const waktuStr = new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+      const waktuStr = formatTimeWIB(new Date());
       sendPresensiNotification({
         siswaId: body.siswa_id,
         tenantId,

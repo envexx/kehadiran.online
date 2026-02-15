@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireTenantAuth } from "@/lib/auth";
 import { sendPresensiNotification } from "@/lib/whatsapp";
+import { dayNameWIB, todayStartWIB, todayEndWIB, nowHoursMinutesWIB, formatTimeWIB } from "@/lib/utils";
 
 export async function POST(request: NextRequest) {
   try {
@@ -27,10 +28,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Siswa tidak ditemukan di sekolah ini" }, { status: 404 });
     }
 
-    // Get today's day name
-    const dayNames = ["minggu", "senin", "selasa", "rabu", "kamis", "jumat", "sabtu"];
+    // Get today's day name in WIB
     const now = new Date();
-    const todayDay = dayNames[now.getDay()];
+    const todayDay = dayNameWIB();
 
     // Find active jadwal for today
     const jadwal = await prisma.jadwal.findFirst({
@@ -40,11 +40,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: `Tidak ada jadwal aktif untuk hari ${todayDay}` }, { status: 400 });
     }
 
-    // Check if already recorded today
-    const todayStart = new Date(now);
-    todayStart.setHours(0, 0, 0, 0);
-    const todayEnd = new Date(todayStart);
-    todayEnd.setDate(todayEnd.getDate() + 1);
+    // Check if already recorded today (WIB)
+    const todayStart = todayStartWIB();
+    const todayEnd = todayEndWIB();
 
     const existing = await prisma.presensi.findFirst({
       where: { tenant_id: tenantId, siswa_id, tanggal: { gte: todayStart, lt: todayEnd } },
@@ -58,12 +56,13 @@ export async function POST(request: NextRequest) {
       }, { status: 409 });
     }
 
-    // Determine status based on jam_masuk
+    // Determine status based on jam_masuk (WIB)
     const [jamH, jamM] = jadwal.jam_masuk.split(":").map(Number);
-    const jamMasukDate = new Date(now);
-    jamMasukDate.setHours(jamH, jamM, 0, 0);
+    const { hours: nowH, minutes: nowM } = nowHoursMinutesWIB();
+    const nowMinutes = nowH * 60 + nowM;
+    const jadwalMinutes = jamH * 60 + jamM;
 
-    const status = now <= jamMasukDate ? "hadir" : "terlambat";
+    const status = nowMinutes <= jadwalMinutes ? "hadir" : "terlambat";
 
     // Create presensi record
     const presensi = await prisma.presensi.create({
@@ -80,7 +79,7 @@ export async function POST(request: NextRequest) {
     });
 
     const statusLabel = status === "hadir" ? "Hadir" : "Terlambat";
-    const waktuStr = now.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+    const waktuStr = formatTimeWIB(now);
 
     // Fire-and-forget: send WA notification to parent
     sendPresensiNotification({

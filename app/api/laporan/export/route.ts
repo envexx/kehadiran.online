@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireTenantAuth } from "@/lib/auth";
+import { formatTimeWIB } from "@/lib/utils";
 
 export async function GET(request: NextRequest) {
   try {
@@ -52,7 +53,7 @@ export async function GET(request: NextRequest) {
     const header = "No,Tanggal,NISN,Nama Siswa,Kelas,Waktu Masuk,Status,Keterangan";
     const rows = data.map((p, i) => {
       const tanggal = p.tanggal.toISOString().split("T")[0];
-      const waktu = p.waktu_masuk ? p.waktu_masuk.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) : "-";
+      const waktu = p.waktu_masuk ? formatTimeWIB(p.waktu_masuk) : "-";
       const status = p.status_masuk.charAt(0).toUpperCase() + p.status_masuk.slice(1);
       return `${i + 1},"${tanggal}","${p.siswa.nisn}","${p.siswa.nama_lengkap}","${p.siswa.kelas.nama_kelas}","${waktu}","${status}","${p.keterangan || ""}"`;
     });

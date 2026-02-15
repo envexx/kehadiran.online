@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireTenantAuth } from "@/lib/auth";
 import { sendPresensiNotification } from "@/lib/whatsapp";
+import { todayStartWIB, todayEndWIB, formatTimeWIB } from "@/lib/utils";
 
 export async function POST(request: NextRequest) {
   try {
@@ -27,10 +28,8 @@ export async function POST(request: NextRequest) {
     }
 
     const now = new Date();
-    const todayStart = new Date(now);
-    todayStart.setHours(0, 0, 0, 0);
-    const todayEnd = new Date(todayStart);
-    todayEnd.setDate(todayEnd.getDate() + 1);
+    const todayStart = todayStartWIB();
+    const todayEnd = todayEndWIB();
 
     // Find today's presensi record
     const presensi = await prisma.presensi.findFirst({
@@ -59,7 +58,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    const waktuStr = now.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+    const waktuStr = formatTimeWIB(now);
 
     // Fire-and-forget: send WA pulang notification to parent
     sendPresensiNotification({

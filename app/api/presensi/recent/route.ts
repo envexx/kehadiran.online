@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireTenantAuth } from "@/lib/auth";
+import { formatTimeWIB } from "@/lib/utils";
 
 export async function GET(request: NextRequest) {
   try {
@@ -38,7 +39,7 @@ export async function GET(request: NextRequest) {
       id: p.id,
       nama: p.siswa.nama_lengkap,
       kelas: p.siswa.kelas.nama_kelas,
-      waktu: p.waktu_masuk ? p.waktu_masuk.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) : "—",
+      waktu: p.waktu_masuk ? formatTimeWIB(p.waktu_masuk) : "—",
       status: statusMap[p.status_masuk] || p.status_masuk,
       metode: metodeMap[p.metode_input] || p.metode_input,
     }));

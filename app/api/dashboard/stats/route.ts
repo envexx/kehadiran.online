@@ -1,15 +1,14 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireTenantAuth } from "@/lib/auth";
+import { todayStartWIB, todayEndWIB } from "@/lib/utils";
 
 export async function GET() {
   try {
     const { tenantId } = await requireTenantAuth();
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+    const today = todayStartWIB();
+    const tomorrow = todayEndWIB();
 
     const [totalSiswa, siswaAktif, totalGuru, totalKelas, presensiHariIni] = await Promise.all([
       prisma.siswa.count({ where: { tenant_id: tenantId } }),
@@ -34,6 +33,7 @@ export async function GET() {
     // Weekly trend (last 5 weekdays)
     const trendMingguan = [];
     const hariNames = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
+    // Note: 'today' is already WIB-aware (00:00 WIB in UTC)
 
     for (let i = 4; i >= 0; i--) {
       const d = new Date(today);
@@ -47,8 +47,10 @@ export async function GET() {
         _count: true,
       });
 
+      // d is UTC representing WIB midnight, add offset to get correct WIB day
+      const dWIB = new Date(d.getTime() + 7 * 60 * 60_000);
       trendMingguan.push({
-        hari: hariNames[d.getDay()],
+        hari: hariNames[dWIB.getUTCDay()],
         hadir: (dayData.find((p) => p.status_masuk === "hadir")?._count || 0) + (dayData.find((p) => p.status_masuk === "terlambat")?._count || 0),
         alpha: dayData.find((p) => p.status_masuk === "alpha")?._count || 0,
         terlambat: dayData.find((p) => p.status_masuk === "terlambat")?._count || 0,
