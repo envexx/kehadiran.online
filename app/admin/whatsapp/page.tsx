@@ -10,8 +10,7 @@ const DEFAULT_TEMPLATES: Record<string, { label: string; color: string; defaultT
   wa_tpl_hadir: { label: "Hadir", color: "bg-emerald-500/10 text-emerald-600", defaultText: "Assalamualaikum, {nama_ortu}. {nama_siswa} telah hadir di sekolah pada {waktu}." },
   wa_tpl_terlambat: { label: "Terlambat", color: "bg-amber-500/10 text-amber-600", defaultText: "Assalamualaikum, {nama_ortu}. {nama_siswa} terlambat hadir di sekolah pada {waktu}." },
   wa_tpl_alpha: { label: "Alpha", color: "bg-red-500/10 text-red-600", defaultText: "Assalamualaikum, {nama_ortu}. {nama_siswa} tidak hadir di sekolah hari ini tanpa keterangan." },
-  wa_tpl_izin: { label: "Izin", color: "bg-blue-500/10 text-blue-600", defaultText: "Assalamualaikum, {nama_ortu}. {nama_siswa} izin tidak hadir di sekolah hari ini." },
-  wa_tpl_sakit: { label: "Sakit", color: "bg-purple-500/10 text-purple-600", defaultText: "Assalamualaikum, {nama_ortu}. {nama_siswa} sakit dan tidak hadir di sekolah hari ini." },
+  wa_tpl_pulang: { label: "Pulang", color: "bg-sky-500/10 text-sky-600", defaultText: "Assalamualaikum, {nama_ortu}. {nama_siswa} telah pulang dari sekolah pada {waktu}. Terima kasih." },
 };
 
 export default function AdminWhatsAppPage() {

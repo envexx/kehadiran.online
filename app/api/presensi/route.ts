@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireTenantAuth } from "@/lib/auth";
+import { sendPresensiNotification } from "@/lib/whatsapp";
 
 export async function GET(request: NextRequest) {
   try {
@@ -62,6 +63,8 @@ export async function POST(request: NextRequest) {
     const { tenantId, userId } = await requireTenantAuth();
     const body = await request.json();
 
+    const statusMasuk = body.status_masuk || "hadir";
+
     const presensi = await prisma.presensi.create({
       data: {
         tenant_id: tenantId,
@@ -69,12 +72,24 @@ export async function POST(request: NextRequest) {
         jadwal_id: body.jadwal_id,
         tanggal: new Date(body.tanggal || new Date().toISOString().split("T")[0]),
         waktu_masuk: body.waktu_masuk ? new Date(body.waktu_masuk) : new Date(),
-        status_masuk: body.status_masuk || "hadir",
+        status_masuk: statusMasuk,
         metode_input: body.metode_input || "manual",
         keterangan: body.keterangan || null,
         input_by: userId,
       },
     });
+
+    // Fire-and-forget: send WA notification (hadir, terlambat, alpha only)
+    const notifStatuses = ["hadir", "terlambat", "alpha"];
+    if (notifStatuses.includes(statusMasuk)) {
+      const waktuStr = new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+      sendPresensiNotification({
+        siswaId: body.siswa_id,
+        tenantId,
+        status: statusMasuk as "hadir" | "terlambat" | "alpha",
+        waktu: waktuStr,
+      });
+    }
 
     return NextResponse.json({ success: true, data: presensi }, { status: 201 });
   } catch (e: unknown) {

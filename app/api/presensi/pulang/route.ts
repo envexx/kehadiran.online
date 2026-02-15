@@ -13,7 +13,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "QR Code tidak valid" }, { status: 400 });
     }
 
-    // Validate tenant_id from QR matches the logged-in tenant
     if (qrTenantId && qrTenantId !== tenantId) {
       return NextResponse.json({ error: "QR Code bukan milik sekolah ini" }, { status: 403 });
     }
@@ -27,66 +26,46 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Siswa tidak ditemukan di sekolah ini" }, { status: 404 });
     }
 
-    // Get today's day name
-    const dayNames = ["minggu", "senin", "selasa", "rabu", "kamis", "jumat", "sabtu"];
     const now = new Date();
-    const todayDay = dayNames[now.getDay()];
-
-    // Find active jadwal for today
-    const jadwal = await prisma.jadwal.findFirst({
-      where: { tenant_id: tenantId, hari: todayDay, is_active: true },
-    });
-    if (!jadwal) {
-      return NextResponse.json({ error: `Tidak ada jadwal aktif untuk hari ${todayDay}` }, { status: 400 });
-    }
-
-    // Check if already recorded today
     const todayStart = new Date(now);
     todayStart.setHours(0, 0, 0, 0);
     const todayEnd = new Date(todayStart);
     todayEnd.setDate(todayEnd.getDate() + 1);
 
-    const existing = await prisma.presensi.findFirst({
+    // Find today's presensi record
+    const presensi = await prisma.presensi.findFirst({
       where: { tenant_id: tenantId, siswa_id, tanggal: { gte: todayStart, lt: todayEnd } },
     });
-    if (existing) {
+
+    if (!presensi) {
+      return NextResponse.json({ error: "Siswa belum melakukan presensi masuk hari ini" }, { status: 400 });
+    }
+
+    if (presensi.waktu_pulang) {
       return NextResponse.json({
-        error: "Siswa sudah melakukan presensi hari ini",
+        error: "Siswa sudah melakukan presensi pulang hari ini",
         already: true,
         nama: siswa.nama_lengkap,
         kelas: siswa.kelas.nama_kelas,
       }, { status: 409 });
     }
 
-    // Determine status based on jam_masuk
-    const [jamH, jamM] = jadwal.jam_masuk.split(":").map(Number);
-    const jamMasukDate = new Date(now);
-    jamMasukDate.setHours(jamH, jamM, 0, 0);
-
-    const status = now <= jamMasukDate ? "hadir" : "terlambat";
-
-    // Create presensi record
-    const presensi = await prisma.presensi.create({
+    // Update with pulang time
+    await prisma.presensi.update({
+      where: { id: presensi.id },
       data: {
-        tenant_id: tenantId,
-        siswa_id,
-        jadwal_id: jadwal.id,
-        tanggal: todayStart,
-        waktu_masuk: now,
-        status_masuk: status,
-        metode_input: "qr_code",
-        input_by: userId,
+        waktu_pulang: now,
+        status_pulang: "pulang",
       },
     });
 
-    const statusLabel = status === "hadir" ? "Hadir" : "Terlambat";
     const waktuStr = now.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
 
-    // Fire-and-forget: send WA notification to parent
+    // Fire-and-forget: send WA pulang notification to parent
     sendPresensiNotification({
       siswaId: siswa_id,
       tenantId,
-      status: status as "hadir" | "terlambat",
+      status: "pulang",
       waktu: waktuStr,
     });
 
@@ -96,10 +75,10 @@ export async function POST(request: NextRequest) {
         id: presensi.id,
         nama: siswa.nama_lengkap,
         kelas: siswa.kelas.nama_kelas,
-        status: statusLabel,
+        status: "Pulang",
         waktu: waktuStr,
       },
-    }, { status: 201 });
+    });
   } catch (e: unknown) {
     if (e instanceof Error && e.message === "UNAUTHORIZED") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
