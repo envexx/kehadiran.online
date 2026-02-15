@@ -95,7 +95,7 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 sm:h-16 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 relative">
-              <Image src="/kehadiran_png.png" alt="Kehadiran" width={32} height={32} className="object-contain" />
+              <Image src="/kehadiran_no_bg.png" alt="Kehadiran" width={32} height={32} className="object-contain" />
             </div>
             <span className="text-lg font-bold text-gray-900">Kehadiran</span>
           </div>
@@ -598,7 +598,7 @@ export default function LandingPage() {
             <div className="col-span-1 sm:col-span-2 md:col-span-1">
               <div className="flex items-center gap-2.5 mb-3">
                 <div className="w-8 h-8 relative">
-                  <Image src="/kehadiran_png.png" alt="Kehadiran" width={32} height={32} className="object-contain" />
+                  <Image src="/kehadiran_no_bg.png" alt="Kehadiran" width={32} height={32} className="object-contain" />
                 </div>
                 <span className="text-lg font-bold text-gray-900">Kehadiran</span>
               </div>

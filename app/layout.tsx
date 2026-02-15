@@ -31,7 +31,7 @@ export default function RootLayout({
       <head>
         <title>Kehadiran - Sistem Presensi Digital</title>
         <meta name="description" content="Kehadiran - Sistem presensi digital modern untuk sekolah" />
-        <link rel="icon" href="/kehadiran.png" type="image/png" />
+        <link rel="icon" href="/kehadiran_no_bg.png" type="image/png" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=SN+Pro:ital,wght@0,200..900;1,200..900&display=swap" rel="stylesheet" />

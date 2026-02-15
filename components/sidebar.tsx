@@ -97,7 +97,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onClose }) => {
         <div className="px-4 h-16 flex items-center justify-between border-b border-gray-50">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 relative flex-shrink-0">
-              <Image src="/kehadiran.png" alt="Kehadiran" width={36} height={36} className="object-contain" />
+              <Image src="/kehadiran_no_bg.png" alt="Kehadiran" width={36} height={36} className="object-contain" />
             </div>
             <div>
               <h1 className="text-[15px] font-bold text-gray-900 leading-tight">Kehadiran</h1>

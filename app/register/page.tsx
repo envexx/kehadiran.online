@@ -226,7 +226,7 @@ export default function RegisterPage() {
         <div className="relative z-10 flex flex-col justify-between p-12 w-full">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 relative">
-              <Image src="/kehadiran.png" alt="Kehadiran" width={40} height={40} className="object-contain brightness-0 invert" />
+              <Image src="/kehadiran_no_bg.png" alt="Kehadiran" width={40} height={40} className="object-contain brightness-0 invert" />
             </div>
             <span className="text-xl font-bold text-white">Kehadiran</span>
           </div>
@@ -277,7 +277,7 @@ export default function RegisterPage() {
           {/* Mobile Logo */}
           <div className="flex items-center gap-3 mb-6 lg:hidden">
             <div className="w-10 h-10 relative">
-              <Image src="/kehadiran.png" alt="Kehadiran" width={40} height={40} className="object-contain dark:brightness-0 dark:invert" />
+              <Image src="/kehadiran_no_bg.png" alt="Kehadiran" width={40} height={40} className="object-contain dark:brightness-0 dark:invert" />
             </div>
             <span className="text-xl font-bold text-gray-900 dark:text-white">Kehadiran</span>
           </div>

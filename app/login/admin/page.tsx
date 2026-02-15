@@ -69,7 +69,7 @@ export default function AdminLoginPage() {
           {/* Logo */}
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 relative">
-              <Image src="/kehadiran.png" alt="Kehadiran" width={40} height={40} className="object-contain brightness-0 invert" />
+              <Image src="/kehadiran_no_bg.png" alt="Kehadiran" width={40} height={40} className="object-contain brightness-0 invert" />
             </div>
             <div>
               <span className="text-xl font-bold text-white">Kehadiran</span>
@@ -116,7 +116,7 @@ export default function AdminLoginPage() {
           {/* Mobile Logo */}
           <div className="flex items-center gap-3 mb-8 lg:hidden">
             <div className="w-10 h-10 relative">
-              <Image src="/kehadiran.png" alt="Kehadiran" width={40} height={40} className="object-contain dark:brightness-0 dark:invert" />
+              <Image src="/kehadiran_no_bg.png" alt="Kehadiran" width={40} height={40} className="object-contain dark:brightness-0 dark:invert" />
             </div>
             <div>
               <span className="text-xl font-bold text-gray-900 dark:text-white">Kehadiran</span>
