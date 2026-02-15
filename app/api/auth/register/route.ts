@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
-import { SignJWT } from "jose";
 import bcrypt from "bcryptjs";
 import prisma from "@/lib/prisma";
-
-const JWT_SECRET = process.env.JWT_SECRET || "kehadiran-super-secret-key-change-in-production";
+import { sendEmail, getOtpEmailHtml } from "@/lib/email";
 
 function generateSlug(nama: string): string {
   return nama
@@ -12,6 +10,51 @@ function generateSlug(nama: string): string {
     .replace(/\s+/g, "-")
     .replace(/-+/g, "-")
     .substring(0, 50);
+}
+
+function generateOtp(): string {
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+async function sendOtpEmail(email: string, otpCode: string, adminName: string, schoolName: string) {
+  // Get active SMTP config
+  const smtp = await prisma.smtpConfig.findFirst({ where: { is_active: true, is_default: true } });
+  if (!smtp) {
+    console.error("No active SMTP config found, OTP not sent");
+    return;
+  }
+
+  const html = getOtpEmailHtml({ adminName, schoolName, otpCode });
+
+  try {
+    await sendEmail(
+      {
+        host: smtp.host,
+        port: smtp.port,
+        username: smtp.username,
+        password: smtp.password,
+        from_email: smtp.from_email,
+        from_name: smtp.from_name,
+        encryption: smtp.encryption as "tls" | "ssl" | "none",
+      },
+      {
+        to: email,
+        subject: `${otpCode} — Kode Verifikasi Kehadiran`,
+        html,
+        template: "otp_verification",
+      }
+    );
+
+    // Log email
+    await prisma.emailLog.create({
+      data: { to_email: email, subject: `Kode Verifikasi Kehadiran`, template: "otp_verification", status: "sent", sent_at: new Date() },
+    });
+  } catch (e) {
+    console.error("Failed to send OTP email:", e);
+    await prisma.emailLog.create({
+      data: { to_email: email, subject: `Kode Verifikasi Kehadiran`, template: "otp_verification", status: "failed", error: String(e) },
+    });
+  }
 }
 
 export async function POST(request: Request) {
@@ -47,6 +90,27 @@ export async function POST(request: Request) {
     // Check if email already exists
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
+      // If user exists but not verified, allow re-registration (resend OTP)
+      if (!existingUser.email_verified && existingUser.tenant_id) {
+        const otpCode = generateOtp();
+        const otpExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 min
+
+        await prisma.user.update({
+          where: { id: existingUser.id },
+          data: { otp_code: otpCode, otp_expires_at: otpExpires },
+        });
+
+        const tenant = await prisma.tenant.findUnique({ where: { id: existingUser.tenant_id } });
+        await sendOtpEmail(email, otpCode, existingUser.nama_lengkap, tenant?.nama_sekolah || nama_sekolah);
+
+        return NextResponse.json({
+          success: true,
+          message: "Kode verifikasi telah dikirim ulang ke email Anda.",
+          requireVerification: true,
+          email,
+        });
+      }
+
       return NextResponse.json(
         { error: "Email sudah terdaftar. Silakan login atau gunakan email lain." },
         { status: 409 }
@@ -65,9 +129,13 @@ export async function POST(request: Request) {
     // Hash password
     const password_hash = await bcrypt.hash(password, 12);
 
-    // Create tenant + user + subscription in a transaction
+    // Generate OTP
+    const otpCode = generateOtp();
+    const otpExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 min
+
+    // Create tenant + user in a transaction (NO subscription yet, tenant inactive)
     const result = await prisma.$transaction(async (tx) => {
-      // 1. Create tenant
+      // 1. Create tenant (inactive until verified + plan chosen)
       const tenant = await tx.tenant.create({
         data: {
           nama_sekolah,
@@ -75,11 +143,11 @@ export async function POST(request: Request) {
           alamat: alamat || null,
           nomor_telepon: telepon_sekolah || null,
           email: email_sekolah || email,
-          is_active: true,
+          is_active: false,
         },
       });
 
-      // 2. Create admin user for this tenant
+      // 2. Create admin user (inactive, not verified)
       const user = await tx.user.create({
         data: {
           tenant_id: tenant.id,
@@ -89,95 +157,25 @@ export async function POST(request: Request) {
           role: "admin",
           nama_lengkap,
           nomor_telepon: nomor_telepon || null,
-          is_active: true,
+          is_active: false,
+          email_verified: false,
+          otp_code: otpCode,
+          otp_expires_at: otpExpires,
         },
       });
 
-      // 3. Create free trial subscription (30 siswa, 30 hari)
-      const now = new Date();
-      const trialEnd = new Date(now);
-      trialEnd.setDate(trialEnd.getDate() + 30);
-
-      const subscription = await tx.subscription.create({
-        data: {
-          tenant_id: tenant.id,
-          plan: "free",
-          status: "trial",
-          billing_cycle: "monthly",
-          amount: 0,
-          currency: "IDR",
-          started_at: now,
-          ended_at: trialEnd,
-        },
-      });
-
-      // 4. Create feature quota for free trial (30 siswa max)
-      await tx.featureQuota.create({
-        data: {
-          tenant_id: tenant.id,
-          max_siswa: 30,
-          max_guru: 5,
-          max_kelas: 5,
-          sms_quota: 0,
-          api_calls: 0,
-          storage_gb: 0.5,
-          features: {
-            qr: true,
-            notifikasi_wa: false,
-            laporan: true,
-            export: false,
-            api: false,
-          },
-        },
-      });
-
-      return { tenant, user, subscription };
+      return { tenant, user };
     });
 
-    // Create JWT token for auto-login
-    const secret = new TextEncoder().encode(JWT_SECRET);
-    const token = await new SignJWT({
-      sub: result.user.id,
-      email: result.user.email,
-      role: result.user.role,
-      tenantId: result.tenant.id,
-    })
-      .setProtectedHeader({ alg: "HS256" })
-      .setIssuedAt()
-      .setExpirationTime("8h")
-      .sign(secret);
+    // Send OTP email (async, don't block response)
+    sendOtpEmail(email, otpCode, nama_lengkap, nama_sekolah);
 
-    const response = NextResponse.json({
+    return NextResponse.json({
       success: true,
-      message: "Registrasi berhasil! Selamat datang di Kehadiran.",
-      user: {
-        id: result.user.id,
-        email: result.user.email,
-        nama: result.user.nama_lengkap,
-        role: result.user.role,
-      },
-      tenant: {
-        id: result.tenant.id,
-        nama: result.tenant.nama_sekolah,
-        slug: result.tenant.slug,
-      },
-      subscription: {
-        plan: result.subscription.plan,
-        status: result.subscription.status,
-        trial_ends: result.subscription.ended_at,
-      },
+      message: "Kode verifikasi telah dikirim ke email Anda.",
+      requireVerification: true,
+      email,
     });
-
-    // Set auth cookie
-    response.cookies.set("auth-token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 60 * 60 * 8,
-    });
-
-    return response;
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown error";
     console.error("Registration error:", message);

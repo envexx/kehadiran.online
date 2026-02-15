@@ -65,6 +65,45 @@ export async function testSmtpConnection(config: SmtpConfig): Promise<{ success:
 // EMAIL TEMPLATES
 // ============================================
 
+export function getOtpEmailHtml(data: { adminName: string; schoolName: string; otpCode: string }) {
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+    <body style="margin:0;padding:0;background:#f8fafc;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;">
+      <div style="max-width:560px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e2e8f0;">
+        <div style="background:#2563eb;padding:32px 24px;text-align:center;">
+          <h1 style="color:#fff;font-size:24px;margin:0;">Kehadiran</h1>
+          <p style="color:#93c5fd;font-size:14px;margin:8px 0 0;">Sistem Presensi Digital</p>
+        </div>
+        <div style="padding:32px 24px;">
+          <h2 style="color:#1e293b;font-size:20px;margin:0 0 8px;">Kode Verifikasi</h2>
+          <p style="color:#64748b;font-size:14px;line-height:1.6;margin:0 0 24px;">
+            Halo <strong>${data.adminName}</strong>,<br><br>
+            Terima kasih telah mendaftarkan <strong>${data.schoolName}</strong> di Kehadiran.
+            Gunakan kode berikut untuk memverifikasi email Anda:
+          </p>
+          <div style="text-align:center;margin:24px 0;">
+            <div style="display:inline-block;background:#f1f5f9;border:2px dashed #2563eb;border-radius:12px;padding:16px 40px;">
+              <span style="font-size:32px;font-weight:800;letter-spacing:8px;color:#1e293b;">${data.otpCode}</span>
+            </div>
+          </div>
+          <p style="color:#64748b;font-size:13px;line-height:1.5;margin:16px 0 0;text-align:center;">
+            Kode ini berlaku selama <strong>15 menit</strong>.
+          </p>
+          <p style="color:#94a3b8;font-size:12px;line-height:1.5;margin:24px 0 0;">
+            Jika Anda tidak mendaftar di Kehadiran, abaikan email ini.
+          </p>
+        </div>
+        <div style="background:#f8fafc;padding:16px 24px;text-align:center;border-top:1px solid #e2e8f0;">
+          <p style="color:#94a3b8;font-size:11px;margin:0;">&copy; ${new Date().getFullYear()} Kehadiran — PT Core Solution Digital</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+}
+
 export function getRegistrationEmailHtml(data: { schoolName: string; verifyUrl: string; adminName: string }) {
   return `
     <!DOCTYPE html>
