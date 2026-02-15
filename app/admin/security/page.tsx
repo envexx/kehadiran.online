@@ -31,9 +31,9 @@ export default function AdminSecurityPage() {
 
   return (
     <div className="min-h-screen">
-      <div className="bg-gray-900/80 backdrop-blur-md border-b border-gray-800 px-4 sm:px-6 py-3 sm:py-4 sticky top-0 z-30">
+      <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 px-4 sm:px-6 py-3 sm:py-4 sticky top-0 z-30">
         <div>
-          <h1 className="text-lg sm:text-xl font-bold text-white">Keamanan</h1>
+          <h1 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">Keamanan</h1>
           <p className="text-xs text-gray-500">Konfigurasi keamanan platform</p>
         </div>
       </div>
@@ -41,18 +41,18 @@ export default function AdminSecurityPage() {
       <div className="p-4 sm:p-6 space-y-6 max-w-[1400px] mx-auto">
         {/* Security Settings */}
         <div>
-          <h2 className="text-sm font-semibold text-gray-300 mb-3">Pengaturan Keamanan</h2>
-          <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden divide-y divide-gray-800/50">
+          <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Pengaturan Keamanan</h2>
+          <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden divide-y divide-gray-100 dark:divide-gray-800/50">
             {securitySettings.map((setting) => {
               const Icon = setting.icon;
               return (
-                <div key={setting.key} className="px-5 py-4 flex items-center justify-between hover:bg-gray-800/20 transition-colors">
+                <div key={setting.key} className="px-5 py-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800/20 transition-colors">
                   <div className="flex items-center gap-4">
                     <div className="w-9 h-9 rounded-lg bg-blue-500/10 flex items-center justify-center flex-shrink-0">
                       <Icon size={16} weight="fill" className="text-blue-400" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-white">{setting.label}</p>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">{setting.label}</p>
                       <p className="text-[10px] text-gray-500">{setting.desc}</p>
                     </div>
                   </div>
@@ -65,10 +65,10 @@ export default function AdminSecurityPage() {
 
         {/* Recent Security Alerts */}
         <div>
-          <h2 className="text-sm font-semibold text-gray-300 mb-3">Security Alerts</h2>
-          <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden divide-y divide-gray-800/50">
+          <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Security Alerts</h2>
+          <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden divide-y divide-gray-100 dark:divide-gray-800/50">
             {recentAlerts.map((alert, i) => (
-              <div key={i} className="px-5 py-3.5 flex items-start gap-3 hover:bg-gray-800/20 transition-colors">
+              <div key={i} className="px-5 py-3.5 flex items-start gap-3 hover:bg-gray-50 dark:hover:bg-gray-800/20 transition-colors">
                 <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5 ${
                   alert.type === "warning" ? "bg-amber-500/10" : alert.type === "success" ? "bg-emerald-500/10" : "bg-blue-500/10"
                 }`}>
@@ -79,8 +79,8 @@ export default function AdminSecurityPage() {
                   )}
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm text-gray-300">{alert.message}</p>
-                  <p className="text-[10px] text-gray-600 mt-0.5">{alert.time}</p>
+                  <p className="text-sm text-gray-700 dark:text-gray-300">{alert.message}</p>
+                  <p className="text-[10px] text-gray-400 dark:text-gray-600 mt-0.5">{alert.time}</p>
                 </div>
               </div>
             ))}
