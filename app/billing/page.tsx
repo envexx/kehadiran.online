@@ -245,42 +245,42 @@ export default function BillingPage() {
       </div>
 
       {/* Upgrade Modal */}
-      <Modal isOpen={isOpen} onOpenChange={onOpenChange} size="lg">
+      <Modal isOpen={isOpen} onOpenChange={onOpenChange} size="lg" scrollBehavior="inside" classNames={{ base: "bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 mx-2 sm:mx-auto max-h-[90vh]", header: "border-b border-gray-200 dark:border-gray-800", footer: "border-t border-gray-200 dark:border-gray-800" }}>
         <ModalContent>
           {(onClose) => (
             <>
-              <ModalHeader className="border-b border-gray-100">
+              <ModalHeader>
                 <div>
-                  <h3 className="text-lg font-bold text-gray-900">Upgrade Paket</h3>
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white">Upgrade Paket</h3>
                   <p className="text-sm text-gray-500 font-normal">Masukkan jumlah siswa untuk melihat harga</p>
                 </div>
               </ModalHeader>
-              <ModalBody className="py-6">
+              <ModalBody className="py-4 sm:py-6">
                 {upgradeSuccess ? (
                   <div className="text-center py-6">
-                    <div className="w-16 h-16 rounded-2xl bg-emerald-50 flex items-center justify-center mx-auto mb-4">
+                    <div className="w-16 h-16 rounded-2xl bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center mx-auto mb-4">
                       <Check size={32} className="text-emerald-600" weight="bold" />
                     </div>
-                    <h4 className="text-lg font-bold text-gray-900 mb-1">Berhasil!</h4>
-                    <p className="text-sm text-gray-500">Paket Anda telah diubah ke <strong>{selectedPlan?.name}</strong></p>
+                    <h4 className="text-lg font-bold text-gray-900 dark:text-white mb-1">Berhasil!</h4>
+                    <p className="text-sm text-gray-500">Paket Anda telah diubah ke <strong className="text-gray-900 dark:text-white">{selectedPlan?.name}</strong></p>
                   </div>
                 ) : (
-                  <div className="space-y-5">
+                  <div className="space-y-4 sm:space-y-5">
                     {/* Siswa count input */}
                     <div>
-                      <label className="text-sm font-medium text-gray-700 mb-2 block">Jumlah Siswa</label>
+                      <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Jumlah Siswa</label>
                       <input
                         type="number"
                         min={1}
                         placeholder="Masukkan jumlah siswa..."
                         value={inputSiswa}
                         onChange={(e) => setInputSiswa(e.target.value)}
-                        className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-blue-500 focus:outline-none text-lg font-semibold text-gray-900 transition-colors"
+                        className="w-full px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 focus:border-blue-500 focus:outline-none text-base sm:text-lg font-semibold text-gray-900 dark:text-white transition-colors"
                       />
-                      <div className="flex items-center gap-4 mt-2 flex-wrap">
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 mt-2">
                         {plans.map((p: PlanData) => (
-                          <span key={p.key} className={`text-xs ${selectedPlan?.key === p.key ? "text-blue-600 font-semibold" : "text-gray-400"}`}>
-                            {p.min_siswa}–{p.max_siswa} siswa = Rp {p.price_per_siswa.toLocaleString("id-ID")}/siswa
+                          <span key={p.key} className={`text-xs ${selectedPlan?.key === p.key ? "text-blue-600 dark:text-blue-400 font-semibold" : "text-gray-400"}`}>
+                            {p.min_siswa}–{p.max_siswa} = Rp {p.price_per_siswa.toLocaleString("id-ID")}/siswa
                           </span>
                         ))}
                       </div>
@@ -289,65 +289,65 @@ export default function BillingPage() {
                     {/* Auto-selected plan */}
                     {selectedPlan && (
                       <>
-                        <div className="bg-blue-50 rounded-2xl p-4 flex items-center gap-3">
-                          {(() => { const ic = PLAN_ICONS[selectedPlan.key] || { icon: Lightning, color: "blue" }; const Icon = ic.icon; return <div className={`w-10 h-10 rounded-xl ${ic.color === "amber" ? "bg-amber-100" : "bg-blue-100"} flex items-center justify-center`}><Icon size={20} weight="fill" className={ic.color === "amber" ? "text-amber-600" : "text-blue-600"} /></div>; })()}
-                          <div className="flex-1">
-                            <p className="text-sm font-semibold text-gray-900">Paket {selectedPlan.name} <Chip size="sm" className="bg-blue-600 text-white text-[10px] ml-1">Otomatis</Chip></p>
-                            <p className="text-xs text-gray-500">{selectedPlan.description || `${selectedPlan.min_siswa}–${selectedPlan.max_siswa} siswa`} · Rp {selectedPlan.price_per_siswa.toLocaleString("id-ID")}/siswa/bulan</p>
+                        <div className="bg-blue-50 dark:bg-blue-500/10 rounded-xl sm:rounded-2xl p-3 sm:p-4 flex items-center gap-3">
+                          {(() => { const ic = PLAN_ICONS[selectedPlan.key] || { icon: Lightning, color: "blue" }; const Icon = ic.icon; return <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl ${ic.color === "amber" ? "bg-amber-100 dark:bg-amber-500/20" : "bg-blue-100 dark:bg-blue-500/20"} flex items-center justify-center flex-shrink-0`}><Icon size={18} weight="fill" className={ic.color === "amber" ? "text-amber-600" : "text-blue-600"} /></div>; })()}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-1 flex-wrap">Paket {selectedPlan.name} <Chip size="sm" className="bg-blue-600 text-white text-[10px]">Otomatis</Chip></p>
+                            <p className="text-[11px] sm:text-xs text-gray-500 truncate">{selectedPlan.description || `${selectedPlan.min_siswa}–${selectedPlan.max_siswa} siswa`} · Rp {selectedPlan.price_per_siswa.toLocaleString("id-ID")}/siswa/bln</p>
                           </div>
                         </div>
 
                         {/* Billing cycle toggle */}
                         <div>
-                          <p className="text-sm font-medium text-gray-700 mb-3">Periode Pembayaran</p>
-                          <div className="grid grid-cols-2 gap-3">
+                          <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 sm:mb-3">Periode Pembayaran</p>
+                          <div className="grid grid-cols-2 gap-2 sm:gap-3">
                             <button
                               onClick={() => setBillingCycle("monthly")}
-                              className={`p-4 rounded-xl border-2 text-left transition-all ${billingCycle === "monthly" ? "border-blue-500 bg-blue-50" : "border-gray-200 hover:border-gray-300"}`}
+                              className={`p-3 sm:p-4 rounded-xl border-2 text-left transition-all ${billingCycle === "monthly" ? "border-blue-500 bg-blue-50 dark:bg-blue-500/10" : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"}`}
                             >
-                              <p className="text-sm font-semibold text-gray-900">Bulanan</p>
-                              <p className="text-lg font-bold text-gray-900 mt-1">Rp {monthlyTotal.toLocaleString("id-ID")}</p>
-                              <p className="text-xs text-gray-400">/bulan · {siswaCount} siswa</p>
+                              <p className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-white">Bulanan</p>
+                              <p className="text-sm sm:text-lg font-bold text-gray-900 dark:text-white mt-1">Rp {monthlyTotal.toLocaleString("id-ID")}</p>
+                              <p className="text-[10px] sm:text-xs text-gray-400">/bulan · {siswaCount} siswa</p>
                             </button>
                             <button
                               onClick={() => setBillingCycle("annual")}
-                              className={`p-4 rounded-xl border-2 text-left transition-all relative ${billingCycle === "annual" ? "border-blue-500 bg-blue-50" : "border-gray-200 hover:border-gray-300"}`}
+                              className={`p-3 sm:p-4 rounded-xl border-2 text-left transition-all relative ${billingCycle === "annual" ? "border-blue-500 bg-blue-50 dark:bg-blue-500/10" : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"}`}
                             >
-                              <div className="absolute -top-2 right-3">
-                                <span className="bg-emerald-500 text-white text-[10px] font-semibold px-2 py-0.5 rounded-full">Hemat 17%</span>
+                              <div className="absolute -top-2 right-2 sm:right-3">
+                                <span className="bg-emerald-500 text-white text-[9px] sm:text-[10px] font-semibold px-1.5 sm:px-2 py-0.5 rounded-full">Hemat 17%</span>
                               </div>
-                              <p className="text-sm font-semibold text-gray-900">Tahunan</p>
-                              <p className="text-lg font-bold text-gray-900 mt-1">Rp {annualTotal.toLocaleString("id-ID")}</p>
-                              <p className="text-xs text-gray-400">/tahun · {siswaCount} siswa <span className="text-emerald-600">(hemat Rp {annualDiscount.toLocaleString("id-ID")})</span></p>
+                              <p className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-white">Tahunan</p>
+                              <p className="text-sm sm:text-lg font-bold text-gray-900 dark:text-white mt-1">Rp {annualTotal.toLocaleString("id-ID")}</p>
+                              <p className="text-[10px] sm:text-xs text-gray-400">/tahun · {siswaCount} siswa</p>
                             </button>
                           </div>
                         </div>
 
                         {/* Price summary */}
-                        <div className="border-t border-gray-100 pt-4">
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm text-gray-500">Harga per siswa</span>
-                            <span className="text-sm text-gray-700">Rp {selectedPlan.price_per_siswa.toLocaleString("id-ID")}/siswa/bulan</span>
+                        <div className="border-t border-gray-100 dark:border-gray-800 pt-3 sm:pt-4 space-y-1.5 sm:space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs sm:text-sm text-gray-500">Harga per siswa</span>
+                            <span className="text-xs sm:text-sm text-gray-700 dark:text-gray-300">Rp {selectedPlan.price_per_siswa.toLocaleString("id-ID")}/siswa/bln</span>
                           </div>
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm text-gray-500">Jumlah siswa</span>
-                            <span className="text-sm text-gray-700">{siswaCount} siswa</span>
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs sm:text-sm text-gray-500">Jumlah siswa</span>
+                            <span className="text-xs sm:text-sm text-gray-700 dark:text-gray-300">{siswaCount} siswa</span>
                           </div>
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm text-gray-500">Periode</span>
-                            <span className="text-sm text-gray-700">{billingCycle === "annual" ? "12 bulan (bayar 10)" : "1 bulan"}</span>
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs sm:text-sm text-gray-500">Periode</span>
+                            <span className="text-xs sm:text-sm text-gray-700 dark:text-gray-300">{billingCycle === "annual" ? "12 bulan (bayar 10)" : "1 bulan"}</span>
                           </div>
                           {billingCycle === "annual" && (
-                            <div className="flex items-center justify-between mb-2">
-                              <span className="text-sm text-emerald-600">Diskon tahunan (2 bulan gratis)</span>
-                              <span className="text-sm text-emerald-600">-Rp {annualDiscount.toLocaleString("id-ID")}</span>
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs sm:text-sm text-emerald-600">Diskon (2 bulan gratis)</span>
+                              <span className="text-xs sm:text-sm text-emerald-600">-Rp {annualDiscount.toLocaleString("id-ID")}</span>
                             </div>
                           )}
-                          <div className="flex items-center justify-between pt-2 border-t border-gray-100">
-                            <span className="text-sm font-semibold text-gray-900">Total</span>
-                            <span className="text-lg font-bold text-gray-900">
+                          <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-gray-800">
+                            <span className="text-sm font-semibold text-gray-900 dark:text-white">Total</span>
+                            <span className="text-base sm:text-lg font-bold text-gray-900 dark:text-white">
                               Rp {(billingCycle === "annual" ? annualTotal : monthlyTotal).toLocaleString("id-ID")}
-                              <span className="text-xs text-gray-400 font-normal">/{billingCycle === "annual" ? "tahun" : "bulan"}</span>
+                              <span className="text-[10px] sm:text-xs text-gray-400 font-normal">/{billingCycle === "annual" ? "tahun" : "bulan"}</span>
                             </span>
                           </div>
                         </div>
@@ -355,14 +355,14 @@ export default function BillingPage() {
                     )}
 
                     {upgradeError && (
-                      <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl px-4 py-2">{upgradeError}</div>
+                      <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-red-600 dark:text-red-400 text-sm rounded-xl px-4 py-2">{upgradeError}</div>
                     )}
                   </div>
                 )}
               </ModalBody>
               {!upgradeSuccess && (
-                <ModalFooter className="border-t border-gray-100">
-                  <Button variant="bordered" className="border-gray-200" onPress={onClose}>Batal</Button>
+                <ModalFooter>
+                  <Button variant="bordered" className="border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300" onPress={onClose}>Batal</Button>
                   <Button
                     color="primary"
                     className="bg-blue-600 font-medium"
