@@ -395,32 +395,6 @@ export default function RegisterPage() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {/* Free trial card */}
-                  <button
-                    onClick={() => handleChoosePlan("free")}
-                    disabled={isLoading}
-                    className={`w-full text-left p-4 rounded-2xl border-2 transition-all ${
-                      selectedPlan === "free" ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20" : "border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 hover:border-blue-300"
-                    } ${isLoading && selectedPlan === "free" ? "opacity-70" : ""}`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
-                          <Tag size={18} className="text-gray-500" weight="fill" />
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h3 className="font-bold text-gray-900 dark:text-white text-sm">Free Trial</h3>
-                          </div>
-                          <p className="text-[11px] text-gray-500">30 siswa • 30 hari gratis</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-lg font-bold text-gray-900 dark:text-white">Gratis</p>
-                      </div>
-                    </div>
-                  </button>
-
                   {plans.filter(p => p.is_active).map((plan) => (
                     <button
                       key={plan.id}
@@ -440,15 +414,26 @@ export default function RegisterPage() {
                               <h3 className="font-bold text-gray-900 dark:text-white text-sm">{plan.name}</h3>
                               {plan.is_popular && <Chip size="sm" color="primary" variant="flat" className="text-[9px] h-4">Populer</Chip>}
                             </div>
-                            <p className="text-[11px] text-gray-500">{plan.min_siswa}–{plan.max_siswa} siswa</p>
+                            <p className="text-[11px] text-gray-500">
+                              {plan.price_per_siswa === 0
+                                ? `Maks ${plan.max_siswa} siswa • 30 hari gratis`
+                                : `${plan.min_siswa}–${plan.max_siswa} siswa`
+                              }
+                            </p>
                           </div>
                         </div>
                         <div className="text-right">
                           {plan.original_price && plan.original_price > plan.price_per_siswa && (
                             <p className="text-[11px] text-gray-400 line-through">{fmtCurrency(plan.original_price)}</p>
                           )}
-                          <p className="text-lg font-bold text-gray-900 dark:text-white">{fmtCurrency(plan.price_per_siswa)}</p>
-                          <p className="text-[10px] text-gray-500">/siswa/bulan</p>
+                          {plan.price_per_siswa === 0 ? (
+                            <p className="text-lg font-bold text-emerald-600">Gratis</p>
+                          ) : (
+                            <>
+                              <p className="text-lg font-bold text-gray-900 dark:text-white">{fmtCurrency(plan.price_per_siswa)}</p>
+                              <p className="text-[10px] text-gray-500">/siswa/bulan</p>
+                            </>
+                          )}
                         </div>
                       </div>
                       {plan.features && plan.features.length > 0 && (
@@ -462,6 +447,30 @@ export default function RegisterPage() {
                       )}
                     </button>
                   ))}
+
+                  {/* Fallback if no plans in DB */}
+                  {plans.filter(p => p.is_active).length === 0 && (
+                    <button
+                      onClick={() => handleChoosePlan("free")}
+                      disabled={isLoading}
+                      className={`w-full text-left p-4 rounded-2xl border-2 transition-all ${
+                        selectedPlan === "free" ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20" : "border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 hover:border-blue-300"
+                      } ${isLoading && selectedPlan === "free" ? "opacity-70" : ""}`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                            <Tag size={18} className="text-gray-500" weight="fill" />
+                          </div>
+                          <div>
+                            <h3 className="font-bold text-gray-900 dark:text-white text-sm">Free Trial</h3>
+                            <p className="text-[11px] text-gray-500">30 siswa • 30 hari gratis</p>
+                          </div>
+                        </div>
+                        <p className="text-lg font-bold text-emerald-600">Gratis</p>
+                      </div>
+                    </button>
+                  )}
                 </div>
               )}
 
